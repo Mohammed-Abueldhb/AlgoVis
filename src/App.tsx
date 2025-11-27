@@ -12,6 +12,16 @@ import Blake2bPage from "./pages/Blake2bPage";
 import QuickSort from "./pages/algorithms/quick-sort";
 import BinarySearch from "./pages/algorithms/binary-search";
 import LinearSearch from "./pages/algorithms/linear-search";
+import InsertionSort from "./pages/algorithms/insertion-sort";
+import SelectionSort from "./pages/algorithms/selection-sort";
+import MergeSort from "./pages/algorithms/merge-sort";
+import HeapSort from "./pages/algorithms/heap-sort";
+import InterpolationSearch from "./pages/algorithms/interpolation-search";
+import ExponentialSearch from "./pages/algorithms/exponential-search";
+import FibonacciSearch from "./pages/algorithms/fibonacci-search";
+import Prim from "./pages/algorithms/prim";
+import Kruskal from "./pages/algorithms/kruskal";
+import Dijkstra from "./pages/algorithms/dijkstra";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +39,16 @@ const App = () => (
           <Route path="/algorithms/quick-sort" element={<QuickSort />} />
           <Route path="/algorithms/binary-search" element={<BinarySearch />} />
           <Route path="/algorithms/linear-search" element={<LinearSearch />} />
+          <Route path="/algorithms/insertion-sort" element={<InsertionSort />} />
+          <Route path="/algorithms/selection-sort" element={<SelectionSort />} />
+          <Route path="/algorithms/merge-sort" element={<MergeSort />} />
+          <Route path="/algorithms/heap-sort" element={<HeapSort />} />
+          <Route path="/algorithms/interpolation-search" element={<InterpolationSearch />} />
+          <Route path="/algorithms/exponential-search" element={<ExponentialSearch />} />
+          <Route path="/algorithms/fibonacci-search" element={<FibonacciSearch />} />
+          <Route path="/algorithms/prim" element={<Prim />} />
+          <Route path="/algorithms/kruskal" element={<Kruskal />} />
+          <Route path="/algorithms/dijkstra" element={<Dijkstra />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/blake2b" element={<Blake2bPage />} />
           <Route path="/about" element={<About />} />

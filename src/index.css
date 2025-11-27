@@ -44,8 +44,13 @@
     --ring: var(--color-cyan);
 
     --success: 142 71% 45%;
+    --success-foreground: 210 40% 98%;
     --warning: 38 92% 50%;
+    --warning-foreground: 210 40% 98%;
     --danger: var(--color-crimson);
+    --danger-foreground: 210 40% 98%;
+    --info: var(--color-cyan);
+    --info-foreground: var(--color-navy);
 
     --radius: 0.75rem;
 
