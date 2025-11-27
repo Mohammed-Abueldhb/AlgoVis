@@ -73,14 +73,14 @@ const BinarySearch = () => {
     for (const h of highlights) {
       if (h.indices.includes(index)) {
         switch (h.type) {
-          case 'pivot': return 'bg-success';
-          case 'compare': return 'bg-accent';
-          case 'swap': return 'bg-danger';
-          case 'mark': return 'bg-primary';
+          case 'pivot': return 'bg-success shadow-lg';
+          case 'compare': return 'bg-accent shadow-lg';
+          case 'swap': return 'bg-danger shadow-lg';
+          case 'mark': return 'bg-primary shadow-lg';
         }
       }
     }
-    return 'bg-cyan/60';
+    return 'bg-info';
   };
 
   const code = `function binarySearch(arr, target) {
@@ -158,18 +158,22 @@ const BinarySearch = () => {
             </div>
 
             {/* Visualizer */}
-            <div className="bg-card rounded-xl p-8 border border-border min-h-[400px]">
-              <div className="flex items-end justify-center gap-1 h-80">
+            <div className="bg-card rounded-xl p-8 border border-border min-h-[500px]">
+              <div className="flex items-end justify-center gap-1 h-96">
                 {frame.array.map((value, index) => (
                   <div
-                    key={index}
-                    className="flex flex-col items-center gap-2 flex-1 max-w-[60px]"
+                    key={`bar-${index}-${value}`}
+                    className="flex flex-col items-center justify-end gap-2 flex-1 max-w-[60px] min-w-[20px]"
+                    style={{ height: '100%' }}
                   >
                     <div
                       className={`w-full rounded-t transition-all duration-300 ${getBarColor(index)}`}
-                      style={{ height: `${(value / maxValue) * 100}%` }}
+                      style={{ 
+                        height: `${(value / maxValue) * 85}%`,
+                        minHeight: '8px'
+                      }}
                     />
-                    <div className="text-xs text-muted-foreground font-mono">{value}</div>
+                    <div className="text-xs text-muted-foreground font-mono whitespace-nowrap">{value}</div>
                   </div>
                 ))}
               </div>

@@ -4,9 +4,9 @@ import { ArrowLeft, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ControlsPanel } from "@/components/ControlsPanel";
 import { CodePanel } from "@/components/CodePanel";
-import { generateQuickSortSteps, Frame } from "@/lib/stepGenerators/quickSort";
+import { generateSelectionSortSteps, Frame } from "@/lib/stepGenerators/selectionSort";
 
-const QuickSort = () => {
+const SelectionSort = () => {
   const navigate = useNavigate();
   const [arraySize, setArraySize] = useState(15);
   const [speed, setSpeed] = useState(500);
@@ -17,7 +17,7 @@ const QuickSort = () => {
 
   const generateArray = (size: number) => {
     const arr = Array.from({ length: size }, () => Math.floor(Math.random() * 100) + 10);
-    const newFrames = generateQuickSortSteps(arr);
+    const newFrames = generateSelectionSortSteps(arr);
     setFrames(newFrames);
     setCurrentFrame(0);
     setIsPlaying(false);
@@ -82,25 +82,21 @@ const QuickSort = () => {
     return 'bg-info';
   };
 
-  const code = `function quickSort(arr, low, high) {
-  if (low < high) {
-    // Partition the array
-    const pivot = arr[high];
-    let i = low - 1;
+  const code = `function selectionSort(arr) {
+  for (let i = 0; i < arr.length - 1; i++) {
+    let minIdx = i;
     
-    for (let j = low; j < high; j++) {
-      if (arr[j] < pivot) {
-        i++;
-        [arr[i], arr[j]] = [arr[j], arr[i]];
+    // Find the minimum element in unsorted portion
+    for (let j = i + 1; j < arr.length; j++) {
+      if (arr[j] < arr[minIdx]) {
+        minIdx = j;
       }
     }
     
-    [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
-    const pi = i + 1;
-    
-    // Recursively sort subarrays
-    quickSort(arr, low, pi - 1);
-    quickSort(arr, pi + 1, high);
+    // Swap with the first unsorted element
+    if (minIdx !== i) {
+      [arr[i], arr[minIdx]] = [arr[minIdx], arr[i]];
+    }
   }
   return arr;
 }`;
@@ -118,8 +114,8 @@ const QuickSort = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Algorithms
           </Button>
-          <h1 className="text-4xl font-bold mb-2">Quick Sort Visualizer</h1>
-          <p className="text-muted-foreground">Divide and conquer sorting algorithm using partitioning</p>
+          <h1 className="text-4xl font-bold mb-2">Selection Sort Visualizer</h1>
+          <p className="text-muted-foreground">Simple sorting by repeatedly finding minimum element</p>
         </div>
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-8">
@@ -134,11 +130,11 @@ const QuickSort = () => {
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <div className="text-muted-foreground">Best Case</div>
-                      <div className="font-mono">O(n log n)</div>
+                      <div className="font-mono">O(n²)</div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">Average</div>
-                      <div className="font-mono">O(n log n)</div>
+                      <div className="font-mono">O(n²)</div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">Worst Case</div>
@@ -183,19 +179,19 @@ const QuickSort = () => {
             <div className="flex flex-wrap gap-4 justify-center text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded bg-primary" />
-                <span className="text-muted-foreground">Pivot</span>
+                <span className="text-muted-foreground">Position to Fill</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-success" />
+                <span className="text-muted-foreground">Current Minimum</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded bg-accent" />
-                <span className="text-muted-foreground">Comparing</span>
+                <span className="text-muted-foreground">Checking</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded bg-warning" />
                 <span className="text-muted-foreground">Swapping</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-success" />
-                <span className="text-muted-foreground">In Place</span>
               </div>
             </div>
 
@@ -236,4 +232,4 @@ const QuickSort = () => {
   );
 };
 
-export default QuickSort;
+export default SelectionSort;
