@@ -3,6 +3,15 @@ export interface Frame {
   highlights?: { indices: number[]; type: 'compare' | 'swap' | 'pivot' | 'mark' }[];
   labels?: { title?: string; detail?: string };
   meta?: any;
+  // Divide-and-conquer tree metadata
+  treeFrame?: {
+    type: 'split' | 'partition' | 'final';
+    depth: number;
+    l: number;
+    r: number;
+    arraySlice: number[];
+    pivotIndex?: number;
+  };
 }
 
 export function generateQuickSortSteps(arr: number[]): Frame[] {
@@ -11,15 +20,30 @@ export function generateQuickSortSteps(arr: number[]): Frame[] {
   
   frames.push({
     array: [...array],
-    labels: { title: 'Initial Array', detail: 'Starting Quick Sort' }
+    labels: { title: 'Initial Array', detail: 'Starting Quick Sort' },
+    treeFrame: {
+      type: 'split',
+      depth: 0,
+      l: 0,
+      r: array.length - 1,
+      arraySlice: [...array]
+    }
   });
 
-  function partition(low: number, high: number): number {
+  function partition(low: number, high: number, depth: number = 0): number {
     const pivot = array[high];
     frames.push({
       array: [...array],
       highlights: [{ indices: [high], type: 'pivot' }],
-      labels: { title: 'Select Pivot', detail: `Pivot: ${pivot} at index ${high}` }
+      labels: { title: 'Select Pivot', detail: `Pivot: ${pivot} at index ${high}` },
+      treeFrame: {
+        type: 'partition',
+        depth,
+        l: low,
+        r: high,
+        arraySlice: array.slice(low, high + 1),
+        pivotIndex: high
+      }
     });
 
     let i = low - 1;
@@ -78,19 +102,41 @@ export function generateQuickSortSteps(arr: number[]): Frame[] {
     return i + 1;
   }
 
-  function quickSort(low: number, high: number) {
+  function quickSort(low: number, high: number, depth: number = 0) {
     if (low < high) {
-      const pi = partition(low, high);
-      quickSort(low, pi - 1);
-      quickSort(pi + 1, high);
+      frames.push({
+        array: [...array],
+        highlights: [
+          { indices: Array.from({ length: high - low + 1 }, (_, idx) => low + idx), type: 'mark' }
+        ],
+        labels: { title: 'Partition Range', detail: `Sorting [${low}..${high}]` },
+        treeFrame: {
+          type: 'split',
+          depth,
+          l: low,
+          r: high,
+          arraySlice: array.slice(low, high + 1)
+        }
+      });
+      
+      const pi = partition(low, high, depth);
+      quickSort(low, pi - 1, depth + 1);
+      quickSort(pi + 1, high, depth + 1);
     }
   }
 
-  quickSort(0, array.length - 1);
+  quickSort(0, array.length - 1, 0);
 
   frames.push({
     array: [...array],
-    labels: { title: 'Sorted!', detail: 'Quick Sort Complete' }
+    labels: { title: 'Sorted!', detail: 'Quick Sort Complete' },
+    treeFrame: {
+      type: 'final',
+      depth: 0,
+      l: 0,
+      r: array.length - 1,
+      arraySlice: [...array]
+    }
   });
 
   return frames;
