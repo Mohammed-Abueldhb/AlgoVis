@@ -1,39 +1,66 @@
 import { useState } from "react";
-import { Trophy, Clock, ArrowRight } from "lucide-react";
+import { Trophy, Clock, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { TabBar } from "@/components/TabBar";
+import { generateQuickSortSteps } from "@/lib/stepGenerators/quickSort";
+import { generateMergeSortSteps } from "@/lib/stepGenerators/mergeSort";
+import { generateInsertionSortSteps } from "@/lib/stepGenerators/insertionSort";
+import { generateSelectionSortSteps } from "@/lib/stepGenerators/selectionSort";
+import { generateHeapSortSteps } from "@/lib/stepGenerators/heapSort";
+import { generateBinarySearchSteps } from "@/lib/stepGenerators/binarySearch";
+import { generateLinearSearchSteps } from "@/lib/stepGenerators/linearSearch";
+import { generateInterpolationSearchSteps } from "@/lib/stepGenerators/interpolationSearch";
+import { generateExponentialSearchSteps } from "@/lib/stepGenerators/exponentialSearch";
+import { generateFibonacciSearchSteps } from "@/lib/stepGenerators/fibonacciSearch";
 
 const tabs = [
   { id: "sorting", label: "Sorting" },
   { id: "searching", label: "Searching" },
 ];
 
-const algorithms = {
-  sorting: [
-    { id: "quick", name: "Quick Sort", available: true },
-    { id: "merge", name: "Merge Sort", available: false },
-    { id: "insertion", name: "Insertion Sort", available: false },
-    { id: "selection", name: "Selection Sort", available: false },
-    { id: "heap", name: "Heap Sort", available: false },
-  ],
-  searching: [
-    { id: "binary", name: "Binary Search", available: true },
-    { id: "linear", name: "Linear Search", available: true },
-    { id: "interpolation", name: "Interpolation Search", available: false },
-    { id: "exponential", name: "Exponential Search", available: false },
-    { id: "fibonacci", name: "Fibonacci Search", available: false },
-  ],
-};
+interface Algorithm {
+  id: string;
+  name: string;
+  generator: (arr: number[], target?: number) => any[];
+}
+
+const sortingAlgorithms: Algorithm[] = [
+  { id: "quick", name: "Quick Sort", generator: generateQuickSortSteps },
+  { id: "merge", name: "Merge Sort", generator: generateMergeSortSteps },
+  { id: "insertion", name: "Insertion Sort", generator: generateInsertionSortSteps },
+  { id: "selection", name: "Selection Sort", generator: generateSelectionSortSteps },
+  { id: "heap", name: "Heap Sort", generator: generateHeapSortSteps },
+];
+
+const searchingAlgorithms: Algorithm[] = [
+  { id: "binary", name: "Binary Search", generator: generateBinarySearchSteps },
+  { id: "linear", name: "Linear Search", generator: generateLinearSearchSteps },
+  { id: "interpolation", name: "Interpolation Search", generator: generateInterpolationSearchSteps },
+  { id: "exponential", name: "Exponential Search", generator: generateExponentialSearchSteps },
+  { id: "fibonacci", name: "Fibonacci Search", generator: generateFibonacciSearchSteps },
+];
+
+interface ComparisonResult {
+  id: string;
+  name: string;
+  time: number;
+  steps: number;
+  winner: boolean;
+}
 
 const Compare = () => {
   const [activeTab, setActiveTab] = useState<"sorting" | "searching">("sorting");
   const [selected, setSelected] = useState<string[]>([]);
   const [arraySize, setArraySize] = useState(20);
   const [speed, setSpeed] = useState(500);
-  const [hasRun, setHasRun] = useState(false);
+  const [results, setResults] = useState<ComparisonResult[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
+  const [sharedArray, setSharedArray] = useState<number[]>([]);
+
+  const algorithms = activeTab === "sorting" ? sortingAlgorithms : searchingAlgorithms;
 
   const handleToggle = (id: string) => {
     setSelected(prev =>
@@ -43,15 +70,43 @@ const Compare = () => {
 
   const handleStart = () => {
     if (selected.length < 2) return;
-    setHasRun(true);
-    // Simulation - in real implementation this would run algorithms
-  };
+    
+    setIsRunning(true);
+    const newArray = Array.from({ length: arraySize }, () => Math.floor(Math.random() * 100) + 10);
+    setSharedArray(newArray);
+    
+    const target = activeTab === "searching" ? newArray[Math.floor(Math.random() * newArray.length)] : undefined;
+    const newResults: ComparisonResult[] = [];
 
-  // Mock results for demonstration
-  const results = hasRun ? [
-    { id: "quick", name: "Quick Sort", time: 245, steps: 89, winner: true },
-    { id: "binary", name: "Binary Search", time: 156, steps: 45, winner: false },
-  ] : [];
+    // Run each selected algorithm
+    selected.forEach(algoId => {
+      const algo = algorithms.find(a => a.id === algoId);
+      if (!algo) return;
+
+      const startTime = performance.now();
+      const frames = target !== undefined 
+        ? algo.generator([...newArray], target)
+        : algo.generator([...newArray]);
+      const endTime = performance.now();
+
+      newResults.push({
+        id: algoId,
+        name: algo.name,
+        time: Math.round(endTime - startTime),
+        steps: frames.length,
+        winner: false
+      });
+    });
+
+    // Sort by time and mark winner
+    newResults.sort((a, b) => a.time - b.time);
+    if (newResults.length > 0) {
+      newResults[0].winner = true;
+    }
+
+    setResults(newResults);
+    setIsRunning(false);
+  };
 
   return (
     <div className="min-h-screen p-4 md:p-8">
@@ -71,7 +126,7 @@ const Compare = () => {
         <TabBar tabs={tabs} activeTab={activeTab} onTabChange={(id) => {
           setActiveTab(id as "sorting" | "searching");
           setSelected([]);
-          setHasRun(false);
+          setResults([]);
         }} />
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-8 mt-8">
@@ -84,29 +139,25 @@ const Compare = () => {
               </p>
               
               <div className="space-y-3">
-                {algorithms[activeTab].map((algo) => (
+                {algorithms.map((algo) => (
                   <div
                     key={algo.id}
                     className={`flex items-center gap-3 p-4 rounded-lg border transition-colors ${
                       selected.includes(algo.id)
                         ? 'border-accent bg-accent/10'
                         : 'border-border hover:border-accent/50'
-                    } ${!algo.available ? 'opacity-50' : ''}`}
+                    }`}
                   >
                     <Checkbox
                       id={algo.id}
                       checked={selected.includes(algo.id)}
-                      onCheckedChange={() => algo.available && handleToggle(algo.id)}
-                      disabled={!algo.available}
+                      onCheckedChange={() => handleToggle(algo.id)}
                     />
                     <Label
                       htmlFor={algo.id}
-                      className={`flex-1 cursor-pointer ${!algo.available ? 'cursor-not-allowed' : ''}`}
+                      className="flex-1 cursor-pointer"
                     >
                       {algo.name}
-                      {!algo.available && (
-                        <span className="text-xs text-muted-foreground ml-2">(Coming Soon)</span>
-                      )}
                     </Label>
                   </div>
                 ))}
@@ -114,8 +165,8 @@ const Compare = () => {
             </div>
 
             {/* Results */}
-            {hasRun && results.length > 0 && (
-              <div className="bg-card rounded-xl p-6 border border-border animate-slide-up">
+            {results.length > 0 && (
+              <div className="bg-card rounded-xl p-6 border border-border animate-fade-in">
                 <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
                   <Trophy className="w-6 h-6 text-warning" />
                   Race Results
@@ -127,7 +178,7 @@ const Compare = () => {
                       key={result.id}
                       className={`p-6 rounded-lg border-2 transition-all ${
                         result.winner
-                          ? 'border-success bg-success/10 animate-pulse-glow'
+                          ? 'border-success bg-success/10'
                           : 'border-border'
                       }`}
                     >
@@ -141,7 +192,7 @@ const Compare = () => {
                           <div>
                             <div className="font-semibold text-lg">{result.name}</div>
                             {result.winner && (
-                              <div className="text-sm text-success">Winner!</div>
+                              <div className="text-sm text-success font-semibold">🏆 Winner!</div>
                             )}
                           </div>
                         </div>
@@ -150,17 +201,26 @@ const Compare = () => {
                       
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <div className="text-muted-foreground">Execution Time</div>
+                          <div className="text-muted-foreground">Generation Time</div>
                           <div className="font-mono text-lg">{result.time}ms</div>
                         </div>
                         <div>
-                          <div className="text-muted-foreground">Steps</div>
+                          <div className="text-muted-foreground">Total Steps</div>
                           <div className="font-mono text-lg">{result.steps}</div>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
+
+                <Button
+                  onClick={handleStart}
+                  className="w-full mt-6 bg-primary hover:bg-primary/90"
+                  size="lg"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Run Again
+                </Button>
               </div>
             )}
           </div>
@@ -206,12 +266,12 @@ const Compare = () => {
 
               <Button
                 onClick={handleStart}
-                disabled={selected.length < 2}
+                disabled={selected.length < 2 || isRunning}
                 className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50"
                 size="lg"
               >
                 <Clock className="w-5 h-5 mr-2" />
-                {hasRun ? 'Run Again' : 'Start Race'}
+                {isRunning ? 'Running...' : results.length > 0 ? 'Run Again' : 'Start Race'}
               </Button>
 
               {selected.length < 2 && (
@@ -223,13 +283,10 @@ const Compare = () => {
 
             {/* Info */}
             <div className="bg-muted/30 rounded-xl p-6 border border-border">
-              <h4 className="font-semibold mb-2 flex items-center gap-2">
-                <ArrowRight className="w-4 h-4 text-accent" />
-                How It Works
-              </h4>
+              <h4 className="font-semibold mb-2">How It Works</h4>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                All selected algorithms run on the same random array. The fastest algorithm wins! 
-                Times are measured in milliseconds, and step counts show algorithmic complexity.
+                All selected algorithms run on the same random array. Times measured are for generating 
+                the visualization frames. The fastest algorithm wins!
               </p>
             </div>
           </div>

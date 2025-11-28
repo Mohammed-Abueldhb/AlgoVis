@@ -8,7 +8,7 @@ import Home from "./pages/Home";
 import Algorithms from "./pages/Algorithms";
 import Compare from "./pages/Compare";
 import About from "./pages/About";
-import Blake2bPage from "./pages/Blake2bPage";
+
 import QuickSort from "./pages/algorithms/quick-sort";
 import BinarySearch from "./pages/algorithms/binary-search";
 import LinearSearch from "./pages/algorithms/linear-search";
@@ -50,7 +50,6 @@ const App = () => (
           <Route path="/algorithms/kruskal" element={<Kruskal />} />
           <Route path="/algorithms/dijkstra" element={<Dijkstra />} />
           <Route path="/compare" element={<Compare />} />
-          <Route path="/blake2b" element={<Blake2bPage />} />
           <Route path="/about" element={<About />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
