@@ -4,7 +4,24 @@ import { ArrowLeft, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ControlsPanel } from "@/components/ControlsPanel";
 import { CodePanel } from "@/components/CodePanel";
-import { generateMergeSortSteps, Frame } from "@/lib/stepGenerators/mergeSort";
+import { DivideTreeView } from "@/components/DivideTreeView";
+import { generateMergeSortSteps } from "@/lib/stepGenerators/mergeSort";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+
+interface Frame {
+  array: number[];
+  highlights?: { indices: number[]; type: 'compare' | 'swap' | 'pivot' | 'mark' }[];
+  labels?: { title?: string; detail?: string };
+  meta?: any;
+  treeFrame?: {
+    type: 'split' | 'merge' | 'final';
+    depth: number;
+    l: number;
+    r: number;
+    arraySlice: number[];
+  };
+}
 
 const MergeSort = () => {
   const navigate = useNavigate();
@@ -13,6 +30,7 @@ const MergeSort = () => {
   const [frames, setFrames] = useState<Frame[]>([]);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showDivideTree, setShowDivideTree] = useState(true);
   const animationRef = useRef<number>();
 
   const generateArray = (size: number) => {
@@ -200,6 +218,21 @@ function merge(left, right) {
                 <span className="text-muted-foreground">Left Subarray / Merged</span>
               </div>
             </div>
+
+            {/* Divide Tree Toggle */}
+            <div className="flex items-center justify-center gap-3 bg-card rounded-lg p-4 border border-border">
+              <Switch
+                id="divide-tree"
+                checked={showDivideTree}
+                onCheckedChange={setShowDivideTree}
+              />
+              <Label htmlFor="divide-tree" className="cursor-pointer">
+                Show Divide & Conquer Tree
+              </Label>
+            </div>
+
+            {/* Divide Tree View */}
+            {showDivideTree && <DivideTreeView frame={frame} />}
 
             {/* Code Panel - Mobile */}
             <div className="lg:hidden">
