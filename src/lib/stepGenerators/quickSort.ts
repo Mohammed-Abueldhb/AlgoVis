@@ -3,7 +3,6 @@ export interface Frame {
   highlights?: { indices: number[]; type: 'compare' | 'swap' | 'pivot' | 'mark' }[];
   labels?: { title?: string; detail?: string };
   meta?: any;
-  // Divide-and-conquer tree metadata
   treeFrame?: {
     type: 'split' | 'partition' | 'final';
     depth: number;
@@ -11,6 +10,7 @@ export interface Frame {
     r: number;
     arraySlice: number[];
     pivotIndex?: number;
+    pivotValue?: number;
   };
 }
 
@@ -20,7 +20,7 @@ export function generateQuickSortSteps(arr: number[]): Frame[] {
   
   frames.push({
     array: [...array],
-    labels: { title: 'Initial Array', detail: 'Starting Quick Sort' },
+    labels: { title: 'Initial Array', detail: 'Starting Quick Sort - Building Recursion Tree' },
     treeFrame: {
       type: 'split',
       depth: 0,
@@ -30,102 +30,86 @@ export function generateQuickSortSteps(arr: number[]): Frame[] {
     }
   });
 
-  function partition(low: number, high: number, depth: number = 0): number {
-    const pivot = array[high];
+  function quickSortRecursive(low: number, high: number, depth: number = 0) {
+    if (low >= high) {
+      // Base case
+      if (low === high) {
+        frames.push({
+          array: [...array],
+          labels: { 
+            title: 'Base Case', 
+            detail: `Single element [${array[low]}] at depth ${depth}` 
+          },
+          treeFrame: {
+            type: 'split',
+            depth,
+            l: low,
+            r: high,
+            arraySlice: [array[low]]
+          }
+        });
+      }
+      return;
+    }
+
+    // Show the range to partition
     frames.push({
       array: [...array],
-      highlights: [{ indices: [high], type: 'pivot' }],
-      labels: { title: 'Select Pivot', detail: `Pivot: ${pivot} at index ${high}` },
+      labels: { 
+        title: 'Partition Range', 
+        detail: `Partitioning [${low}..${high}] at depth ${depth}` 
+      },
+      treeFrame: {
+        type: 'split',
+        depth,
+        l: low,
+        r: high,
+        arraySlice: array.slice(low, high + 1)
+      }
+    });
+
+    // Partition and get pivot position
+    const pivotIndex = partition(low, high, depth);
+
+    // Show partitioned state
+    frames.push({
+      array: [...array],
+      labels: { 
+        title: 'Partitioned', 
+        detail: `Pivot ${array[pivotIndex]} at position ${pivotIndex}, depth ${depth}` 
+      },
       treeFrame: {
         type: 'partition',
         depth,
         l: low,
         r: high,
         arraySlice: array.slice(low, high + 1),
-        pivotIndex: high
+        pivotIndex: pivotIndex - low,
+        pivotValue: array[pivotIndex]
       }
     });
 
+    // Recursively sort left and right
+    quickSortRecursive(low, pivotIndex - 1, depth + 1);
+    quickSortRecursive(pivotIndex + 1, high, depth + 1);
+  }
+
+  function partition(low: number, high: number, depth: number): number {
+    const pivot = array[high];
     let i = low - 1;
 
     for (let j = low; j < high; j++) {
-      frames.push({
-        array: [...array],
-        highlights: [
-          { indices: [high], type: 'pivot' },
-          { indices: [j], type: 'compare' }
-        ],
-        labels: { title: 'Compare', detail: `Comparing ${array[j]} with pivot ${pivot}` }
-      });
-
       if (array[j] < pivot) {
         i++;
-        frames.push({
-          array: [...array],
-          highlights: [
-            { indices: [high], type: 'pivot' },
-            { indices: [i, j], type: 'swap' }
-          ],
-          labels: { title: 'Swap', detail: `Swapping ${array[i]} and ${array[j]}` }
-        });
-        
         [array[i], array[j]] = [array[j], array[i]];
-        
-        frames.push({
-          array: [...array],
-          highlights: [
-            { indices: [high], type: 'pivot' },
-            { indices: [i, j], type: 'mark' }
-          ],
-          labels: { title: 'After Swap' }
-        });
       }
     }
 
-    frames.push({
-      array: [...array],
-      highlights: [
-        { indices: [high], type: 'pivot' },
-        { indices: [i + 1], type: 'swap' }
-      ],
-      labels: { title: 'Place Pivot', detail: `Moving pivot to position ${i + 1}` }
-    });
-
     [array[i + 1], array[high]] = [array[high], array[i + 1]];
-    
-    frames.push({
-      array: [...array],
-      highlights: [{ indices: [i + 1], type: 'mark' }],
-      labels: { title: 'Pivot in Place' }
-    });
-
     return i + 1;
   }
 
-  function quickSort(low: number, high: number, depth: number = 0) {
-    if (low < high) {
-      frames.push({
-        array: [...array],
-        highlights: [
-          { indices: Array.from({ length: high - low + 1 }, (_, idx) => low + idx), type: 'mark' }
-        ],
-        labels: { title: 'Partition Range', detail: `Sorting [${low}..${high}]` },
-        treeFrame: {
-          type: 'split',
-          depth,
-          l: low,
-          r: high,
-          arraySlice: array.slice(low, high + 1)
-        }
-      });
-      
-      const pi = partition(low, high, depth);
-      quickSort(low, pi - 1, depth + 1);
-      quickSort(pi + 1, high, depth + 1);
-    }
-  }
-
-  quickSort(0, array.length - 1, 0);
+  quickSortRecursive(0, array.length - 1, 0);
 
   frames.push({
     array: [...array],
