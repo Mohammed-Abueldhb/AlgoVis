@@ -6,8 +6,6 @@ import { ControlsPanel } from "@/components/ControlsPanel";
 import { CodePanel } from "@/components/CodePanel";
 import { DivideTreeView } from "@/components/DivideTreeView";
 import { generateMergeSortSteps } from "@/lib/stepGenerators/mergeSort";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 
 interface Frame {
   array: number[];
@@ -25,16 +23,15 @@ interface Frame {
 
 const MergeSort = () => {
   const navigate = useNavigate();
-  const [arraySize, setArraySize] = useState(15);
-  const [speed, setSpeed] = useState(500);
+  const [arraySize, setArraySize] = useState(8);
+  const [speed, setSpeed] = useState(800);
   const [frames, setFrames] = useState<Frame[]>([]);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showDivideTree, setShowDivideTree] = useState(true);
   const animationRef = useRef<number>();
 
   const generateArray = (size: number) => {
-    const arr = Array.from({ length: size }, () => Math.floor(Math.random() * 100) + 10);
+    const arr = Array.from({ length: size }, () => Math.floor(Math.random() * 90) + 10);
     const newFrames = generateMergeSortSteps(arr);
     setFrames(newFrames);
     setCurrentFrame(0);
@@ -83,22 +80,6 @@ const MergeSort = () => {
   };
 
   const frame = frames[currentFrame] || { array: [], highlights: [] };
-  const maxValue = Math.max(...(frame.array.length > 0 ? frame.array : [100]));
-
-  const getBarColor = (index: number) => {
-    const highlights = frame.highlights || [];
-    for (const h of highlights) {
-      if (h.indices.includes(index)) {
-        switch (h.type) {
-          case 'pivot': return 'bg-primary shadow-lg';
-          case 'compare': return 'bg-accent shadow-lg';
-          case 'swap': return 'bg-warning shadow-lg';
-          case 'mark': return 'bg-success shadow-lg';
-        }
-      }
-    }
-    return 'bg-info';
-  };
 
   const code = `function mergeSort(arr) {
   if (arr.length <= 1) return arr;
@@ -126,7 +107,7 @@ function merge(left, right) {
 }`;
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
+    <div className="min-h-screen p-4 md:p-8 bg-background">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-8">
@@ -138,101 +119,51 @@ function merge(left, right) {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Algorithms
           </Button>
-          <h1 className="text-4xl font-bold mb-2">Merge Sort Visualizer</h1>
-          <p className="text-muted-foreground">Divide and conquer sorting with guaranteed O(n log n)</p>
+          <h1 className="text-5xl font-bold mb-3 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Merge Sort Visualizer
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            Divide and conquer sorting with guaranteed O(n log n) • Watch the recursion tree build
+          </p>
         </div>
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-8">
           {/* Main Visualizer */}
           <div className="space-y-6">
             {/* Info Card */}
-            <div className="bg-card rounded-xl p-6 border border-border">
+            <div className="bg-card/80 backdrop-blur-sm rounded-xl p-6 border-2 border-border/70 shadow-lg">
               <div className="flex items-start gap-3 mb-4">
-                <Info className="w-5 h-5 text-accent mt-1" />
-                <div>
-                  <h3 className="font-semibold mb-2">Algorithm Info</h3>
+                <Info className="w-6 h-6 text-accent mt-1 flex-shrink-0" />
+                <div className="flex-1">
+                  <h3 className="font-bold text-lg mb-3">Algorithm Complexity</h3>
                   <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <div className="text-muted-foreground">Best Case</div>
-                      <div className="font-mono">O(n log n)</div>
+                    <div className="bg-background/50 p-3 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground mb-1">Best Case</div>
+                      <div className="font-mono font-bold text-success">O(n log n)</div>
                     </div>
-                    <div>
-                      <div className="text-muted-foreground">Average</div>
-                      <div className="font-mono">O(n log n)</div>
+                    <div className="bg-background/50 p-3 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground mb-1">Average</div>
+                      <div className="font-mono font-bold text-info">O(n log n)</div>
                     </div>
-                    <div>
-                      <div className="text-muted-foreground">Worst Case</div>
-                      <div className="font-mono">O(n log n)</div>
+                    <div className="bg-background/50 p-3 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground mb-1">Worst Case</div>
+                      <div className="font-mono font-bold text-warning">O(n log n)</div>
                     </div>
                   </div>
                 </div>
               </div>
               {frame.labels && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="font-semibold text-accent">{frame.labels.title}</div>
+                <div className="mt-4 pt-4 border-t border-border/50">
+                  <div className="font-bold text-accent text-lg">{frame.labels.title}</div>
                   {frame.labels.detail && (
-                    <div className="text-sm text-muted-foreground mt-1">{frame.labels.detail}</div>
+                    <div className="text-sm text-muted-foreground mt-2">{frame.labels.detail}</div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Visualizer */}
-            <div className="bg-card rounded-xl p-8 border border-border min-h-[500px]">
-              <div className="flex items-end justify-center gap-1 h-96">
-                {frame.array.map((value, index) => (
-                  <div
-                    key={`bar-${index}-${value}`}
-                    className="flex flex-col items-center justify-end gap-2 flex-1 max-w-[60px] min-w-[20px]"
-                    style={{ height: '100%' }}
-                  >
-                    <div
-                      className={`w-full rounded-t transition-all duration-300 ${getBarColor(index)}`}
-                      style={{ 
-                        height: `${(value / maxValue) * 85}%`,
-                        minHeight: '8px'
-                      }}
-                    />
-                    <div className="text-xs text-muted-foreground font-mono whitespace-nowrap">{value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="flex flex-wrap gap-4 justify-center text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-primary" />
-                <span className="text-muted-foreground">Right Subarray</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-accent" />
-                <span className="text-muted-foreground">Comparing</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-warning" />
-                <span className="text-muted-foreground">Placing</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-success" />
-                <span className="text-muted-foreground">Left Subarray / Merged</span>
-              </div>
-            </div>
-
-            {/* Divide Tree Toggle */}
-            <div className="flex items-center justify-center gap-3 bg-card rounded-lg p-4 border border-border">
-              <Switch
-                id="divide-tree"
-                checked={showDivideTree}
-                onCheckedChange={setShowDivideTree}
-              />
-              <Label htmlFor="divide-tree" className="cursor-pointer">
-                Show Divide & Conquer Tree
-              </Label>
-            </div>
-
-            {/* Divide Tree View */}
-            {showDivideTree && <DivideTreeView frames={frames} currentFrameIndex={currentFrame} />}
+            {/* Recursion Tree View */}
+            <DivideTreeView frames={frames} currentFrameIndex={currentFrame} />
 
             {/* Code Panel - Mobile */}
             <div className="lg:hidden">

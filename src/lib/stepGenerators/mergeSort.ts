@@ -3,13 +3,13 @@ export interface Frame {
   highlights?: { indices: number[]; type: 'compare' | 'swap' | 'pivot' | 'mark' }[];
   labels?: { title?: string; detail?: string };
   meta?: any;
-  // Divide-and-conquer tree metadata
   treeFrame?: {
     type: 'split' | 'merge' | 'final';
     depth: number;
     l: number;
     r: number;
     arraySlice: number[];
+    parentRange?: { l: number; r: number };
   };
 }
 
@@ -17,9 +17,10 @@ export function generateMergeSortSteps(arr: number[]): Frame[] {
   const frames: Frame[] = [];
   const array = [...arr];
   
+  // Initial state
   frames.push({
     array: [...array],
-    labels: { title: 'Initial Array', detail: 'Starting Merge Sort' },
+    labels: { title: 'Initial Array', detail: 'Starting Merge Sort - Building Recursion Tree' },
     treeFrame: {
       type: 'split',
       depth: 0,
@@ -29,18 +30,64 @@ export function generateMergeSortSteps(arr: number[]): Frame[] {
     }
   });
 
-  function merge(left: number, mid: number, right: number, depth: number = 0) {
-    const leftArr = array.slice(left, mid + 1);
-    const rightArr = array.slice(mid + 1, right + 1);
-    let i = 0, j = 0, k = left;
+  function mergeSortRecursive(left: number, right: number, depth: number = 0) {
+    if (left >= right) {
+      // Base case: single element (leaf node)
+      frames.push({
+        array: [...array],
+        labels: { 
+          title: 'Base Case', 
+          detail: `Single element [${array[left]}] at depth ${depth}` 
+        },
+        treeFrame: {
+          type: 'split',
+          depth,
+          l: left,
+          r: right,
+          arraySlice: [array[left]]
+        }
+      });
+      return;
+    }
 
+    const mid = Math.floor((left + right) / 2);
+
+    // Show the split
     frames.push({
       array: [...array],
-      highlights: [
-        { indices: Array.from({ length: mid - left + 1 }, (_, idx) => left + idx), type: 'mark' },
-        { indices: Array.from({ length: right - mid }, (_, idx) => mid + 1 + idx), type: 'pivot' }
-      ],
-      labels: { title: 'Merging', detail: `Merge subarrays [${left}..${mid}] and [${mid + 1}..${right}]` },
+      labels: { 
+        title: 'Divide', 
+        detail: `Splitting [${left}..${right}] at mid=${mid} (depth ${depth})` 
+      },
+      treeFrame: {
+        type: 'split',
+        depth,
+        l: left,
+        r: right,
+        arraySlice: array.slice(left, right + 1)
+      }
+    });
+
+    // Recursively sort left half
+    mergeSortRecursive(left, mid, depth + 1);
+
+    // Recursively sort right half
+    mergeSortRecursive(mid + 1, right, depth + 1);
+
+    // Merge the two halves
+    merge(left, mid, right, depth);
+  }
+
+  function merge(left: number, mid: number, right: number, depth: number) {
+    const leftArr = array.slice(left, mid + 1);
+    const rightArr = array.slice(mid + 1, right + 1);
+    
+    frames.push({
+      array: [...array],
+      labels: { 
+        title: 'Merging', 
+        detail: `Merge [${left}..${mid}] and [${mid + 1}..${right}] at depth ${depth}` 
+      },
       treeFrame: {
         type: 'merge',
         depth,
@@ -50,15 +97,9 @@ export function generateMergeSortSteps(arr: number[]): Frame[] {
       }
     });
 
-    while (i < leftArr.length && j < rightArr.length) {
-      frames.push({
-        array: [...array],
-        highlights: [
-          { indices: [k], type: 'compare' }
-        ],
-        labels: { title: 'Compare', detail: `Comparing ${leftArr[i]} and ${rightArr[j]}` }
-      });
+    let i = 0, j = 0, k = left;
 
+    while (i < leftArr.length && j < rightArr.length) {
       if (leftArr[i] <= rightArr[j]) {
         array[k] = leftArr[i];
         i++;
@@ -66,73 +107,39 @@ export function generateMergeSortSteps(arr: number[]): Frame[] {
         array[k] = rightArr[j];
         j++;
       }
-
-      frames.push({
-        array: [...array],
-        highlights: [{ indices: [k], type: 'swap' }],
-        labels: { title: 'Place Element', detail: `Placed ${array[k]} at position ${k}` }
-      });
-      
       k++;
     }
 
     while (i < leftArr.length) {
       array[k] = leftArr[i];
-      frames.push({
-        array: [...array],
-        highlights: [{ indices: [k], type: 'swap' }],
-        labels: { title: 'Copy Remaining', detail: `Copying ${array[k]} from left` }
-      });
       i++;
       k++;
     }
 
     while (j < rightArr.length) {
       array[k] = rightArr[j];
-      frames.push({
-        array: [...array],
-        highlights: [{ indices: [k], type: 'swap' }],
-        labels: { title: 'Copy Remaining', detail: `Copying ${array[k]} from right` }
-      });
       j++;
       k++;
     }
 
+    // Show merged result
     frames.push({
       array: [...array],
-      highlights: [
-        { indices: Array.from({ length: right - left + 1 }, (_, idx) => left + idx), type: 'mark' }
-      ],
-      labels: { title: 'Merged', detail: `Subarray [${left}..${right}] merged` }
+      labels: { 
+        title: 'Merged Result', 
+        detail: `Completed merge [${left}..${right}]: ${array.slice(left, right + 1).join(', ')}` 
+      },
+      treeFrame: {
+        type: 'merge',
+        depth,
+        l: left,
+        r: right,
+        arraySlice: array.slice(left, right + 1)
+      }
     });
   }
 
-  function mergeSort(left: number, right: number, depth: number = 0) {
-    if (left < right) {
-      const mid = Math.floor((left + right) / 2);
-
-      frames.push({
-        array: [...array],
-        highlights: [
-          { indices: Array.from({ length: right - left + 1 }, (_, idx) => left + idx), type: 'pivot' }
-        ],
-        labels: { title: 'Divide', detail: `Split at index ${mid}` },
-        treeFrame: {
-          type: 'split',
-          depth,
-          l: left,
-          r: right,
-          arraySlice: array.slice(left, right + 1)
-        }
-      });
-
-      mergeSort(left, mid, depth + 1);
-      mergeSort(mid + 1, right, depth + 1);
-      merge(left, mid, right, depth);
-    }
-  }
-
-  mergeSort(0, array.length - 1, 0);
+  mergeSortRecursive(0, array.length - 1, 0);
 
   frames.push({
     array: [...array],
