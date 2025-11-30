@@ -232,7 +232,7 @@ function merge(left, right) {
             </div>
 
             {/* Divide Tree View */}
-            {showDivideTree && <DivideTreeView frame={frame} />}
+            {showDivideTree && <DivideTreeView frames={frames} currentFrameIndex={currentFrame} />}
 
             {/* Code Panel - Mobile */}
             <div className="lg:hidden">
