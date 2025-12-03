@@ -1,37 +1,36 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft, Info, Shuffle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GraphVisualizer } from "@/components/GraphVisualizer";
-import { generateDijkstraSteps } from "@/lib/stepGenerators/dijkstra";
+import { generateDijkstraSteps, GraphFrame } from "@/lib/stepGenerators/dijkstra";
+import { generateRandomGraph, Graph } from "@/lib/graphGenerator";
 import { Play, Pause, SkipForward, SkipBack, RotateCcw } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 
-interface GraphFrame {
-  type: 'init' | 'edgeConsider' | 'edgeSelect' | 'edgeSkip' | 'vertexRelax' | 'complete';
-  edges: any[];
-  selectedEdges: any[];
-  currentEdge?: any;
-  visited?: number[];
-  distances?: number[];
-  currentVertex?: number;
-  priorityQueue?: Array<{ vertex: number; distance: number }>;
-  labels?: { title?: string; detail?: string };
-}
-
 const Dijkstra = () => {
   const navigate = useNavigate();
   const [speed, setSpeed] = useState(800);
+  const [nodeCount, setNodeCount] = useState(6);
+  const [density, setDensity] = useState(0.4);
+  const [graph, setGraph] = useState<Graph>({ numVertices: 6, edges: [] });
   const [frames, setFrames] = useState<GraphFrame[]>([]);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const animationRef = useRef<number>();
 
-  useEffect(() => {
-    const newFrames = generateDijkstraSteps(6, 0);
+  const generateGraph = () => {
+    const newGraph = generateRandomGraph(nodeCount, density);
+    setGraph(newGraph);
+    const newFrames = generateDijkstraSteps(newGraph, 0);
     setFrames(newFrames);
     setCurrentFrame(0);
+    setIsPlaying(false);
+  };
+
+  useEffect(() => {
+    generateGraph();
   }, []);
 
   useEffect(() => {
@@ -118,7 +117,7 @@ const Dijkstra = () => {
             </div>
 
             {/* Graph Visualizer */}
-            <GraphVisualizer frame={frame} numVertices={6} />
+            <GraphVisualizer frame={frame} numVertices={graph.numVertices} />
           </div>
 
           {/* Controls Sidebar */}
@@ -176,8 +175,40 @@ const Dijkstra = () => {
                 </div>
               </div>
 
+              {/* Node Count */}
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between items-center">
+                  <Label>Node Count</Label>
+                  <span className="text-sm text-muted-foreground">{nodeCount}</span>
+                </div>
+                <Slider
+                  value={[nodeCount]}
+                  onValueChange={(value) => setNodeCount(value[0])}
+                  min={4}
+                  max={10}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Density */}
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between items-center">
+                  <Label>Edge Density</Label>
+                  <span className="text-sm text-muted-foreground">{(density * 100).toFixed(0)}%</span>
+                </div>
+                <Slider
+                  value={[density * 100]}
+                  onValueChange={(value) => setDensity(value[0] / 100)}
+                  min={30}
+                  max={80}
+                  step={10}
+                  className="w-full"
+                />
+              </div>
+
               {/* Speed Control */}
-              <div className="space-y-2">
+              <div className="space-y-2 mb-6">
                 <div className="flex justify-between items-center">
                   <Label>Animation Speed</Label>
                   <span className="text-sm text-muted-foreground">{speed}ms</span>
@@ -191,6 +222,12 @@ const Dijkstra = () => {
                   className="w-full"
                 />
               </div>
+
+              {/* Generate Graph Button */}
+              <Button onClick={generateGraph} className="w-full bg-secondary hover:bg-secondary/90">
+                <Shuffle className="w-4 h-4 mr-2" />
+                Generate New Graph
+              </Button>
             </div>
 
             {/* Algorithm Description */}

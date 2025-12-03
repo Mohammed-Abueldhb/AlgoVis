@@ -1,119 +1,57 @@
-export interface Edge {
-  u: number;
-  v: number;
-  weight: number;
-}
+import { Edge, Graph } from '../graphGenerator';
 
 export interface GraphFrame {
   type: 'init' | 'edgeConsider' | 'edgeSelect' | 'edgeSkip' | 'complete';
   edges: Edge[];
   selectedEdges: Edge[];
   currentEdge?: Edge;
-  components?: number[][];
+  visited?: number[];
   labels?: { title?: string; detail?: string };
 }
 
 class UnionFind {
-  private parent: number[];
-  private rank: number[];
-
-  constructor(size: number) {
-    this.parent = Array.from({ length: size }, (_, i) => i);
-    this.rank = Array(size).fill(0);
+  parent: number[];
+  rank: number[];
+  constructor(n: number) {
+    this.parent = Array.from({ length: n }, (_, i) => i);
+    this.rank = Array(n).fill(0);
   }
-
   find(x: number): number {
-    if (this.parent[x] !== x) {
-      this.parent[x] = this.find(this.parent[x]);
-    }
+    if (this.parent[x] !== x) this.parent[x] = this.find(this.parent[x]);
     return this.parent[x];
   }
-
   union(x: number, y: number): boolean {
-    const rootX = this.find(x);
-    const rootY = this.find(y);
-
-    if (rootX === rootY) return false;
-
-    if (this.rank[rootX] < this.rank[rootY]) {
-      this.parent[rootX] = rootY;
-    } else if (this.rank[rootX] > this.rank[rootY]) {
-      this.parent[rootY] = rootX;
-    } else {
-      this.parent[rootY] = rootX;
-      this.rank[rootX]++;
-    }
+    const px = this.find(x), py = this.find(y);
+    if (px === py) return false;
+    if (this.rank[px] < this.rank[py]) this.parent[px] = py;
+    else if (this.rank[px] > this.rank[py]) this.parent[py] = px;
+    else { this.parent[py] = px; this.rank[px]++; }
     return true;
   }
 }
 
-export function generateKruskalSteps(numVertices: number = 6): GraphFrame[] {
+export function generateKruskalSteps(graph: Graph): GraphFrame[] {
+  const { numVertices, edges } = graph;
   const frames: GraphFrame[] = [];
+  const sortedEdges = [...edges].sort((a, b) => a.weight - b.weight);
   
-  // Sample graph edges
-  const allEdges: Edge[] = [
-    { u: 0, v: 1, weight: 4 },
-    { u: 0, v: 2, weight: 3 },
-    { u: 1, v: 2, weight: 1 },
-    { u: 1, v: 3, weight: 2 },
-    { u: 2, v: 3, weight: 4 },
-    { u: 3, v: 4, weight: 2 },
-    { u: 3, v: 5, weight: 6 },
-    { u: 4, v: 5, weight: 3 }
-  ];
-
-  // Sort edges by weight
-  const sortedEdges = [...allEdges].sort((a, b) => a.weight - b.weight);
-
-  frames.push({
-    type: 'init',
-    edges: sortedEdges,
-    selectedEdges: [],
-    labels: { title: 'Initialize', detail: 'Sort edges by weight' }
-  });
-
+  frames.push({ type: 'init', edges: [...edges], selectedEdges: [], labels: { title: 'Initialize', detail: `Sorted ${edges.length} edges` } });
+  
   const uf = new UnionFind(numVertices);
   const selectedEdges: Edge[] = [];
-
+  
   for (const edge of sortedEdges) {
-    frames.push({
-      type: 'edgeConsider',
-      edges: sortedEdges,
-      selectedEdges: [...selectedEdges],
-      currentEdge: edge,
-      labels: { title: 'Consider Edge', detail: `Edge (${edge.u}, ${edge.v}) weight ${edge.weight}` }
-    });
-
-    if (uf.find(edge.u) !== uf.find(edge.v)) {
-      uf.union(edge.u, edge.v);
+    if (selectedEdges.length >= numVertices - 1) break;
+    frames.push({ type: 'edgeConsider', edges: [...edges], selectedEdges: [...selectedEdges], currentEdge: edge, labels: { title: 'Consider', detail: `Edge (${edge.u},${edge.v}) w=${edge.weight}` } });
+    
+    if (uf.union(edge.u, edge.v)) {
       selectedEdges.push(edge);
-      
-      frames.push({
-        type: 'edgeSelect',
-        edges: sortedEdges,
-        selectedEdges: [...selectedEdges],
-        currentEdge: edge,
-        labels: { title: 'Add Edge to MST', detail: `Selected edge (${edge.u}, ${edge.v})` }
-      });
-
-      if (selectedEdges.length === numVertices - 1) break;
+      frames.push({ type: 'edgeSelect', edges: [...edges], selectedEdges: [...selectedEdges], currentEdge: edge, labels: { title: 'Select', detail: `Added to MST` } });
     } else {
-      frames.push({
-        type: 'edgeSkip',
-        edges: sortedEdges,
-        selectedEdges: [...selectedEdges],
-        currentEdge: edge,
-        labels: { title: 'Skip Edge', detail: 'Would create a cycle' }
-      });
+      frames.push({ type: 'edgeSkip', edges: [...edges], selectedEdges: [...selectedEdges], currentEdge: edge, labels: { title: 'Skip', detail: 'Would create cycle' } });
     }
   }
-
-  frames.push({
-    type: 'complete',
-    edges: sortedEdges,
-    selectedEdges: [...selectedEdges],
-    labels: { title: 'Complete', detail: `MST weight: ${selectedEdges.reduce((sum, e) => sum + e.weight, 0)}` }
-  });
-
+  
+  frames.push({ type: 'complete', edges: [...edges], selectedEdges: [...selectedEdges], labels: { title: 'Complete', detail: `MST weight: ${selectedEdges.reduce((s, e) => s + e.weight, 0)}` } });
   return frames;
 }
