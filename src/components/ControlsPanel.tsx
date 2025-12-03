@@ -1,4 +1,4 @@
-import { Play, Pause, SkipForward, SkipBack, RotateCcw, Shuffle } from "lucide-react";
+import { Play, Pause, SkipForward, SkipBack, RotateCcw, Shuffle, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { Slider } from "./ui/slider";
 import { Input } from "./ui/input";
@@ -20,6 +20,7 @@ interface ControlsPanelProps {
   targetValue?: number;
   onTargetChange?: (value: number) => void;
   showTarget?: boolean;
+  onRunSearch?: () => void;
 }
 
 export const ControlsPanel = ({
@@ -38,6 +39,7 @@ export const ControlsPanel = ({
   targetValue,
   onTargetChange,
   showTarget = false,
+  onRunSearch,
 }: ControlsPanelProps) => {
   return (
     <div className="bg-card rounded-xl p-6 border border-border space-y-6">
@@ -128,11 +130,25 @@ export const ControlsPanel = ({
           <Label>Target Value</Label>
           <Input
             type="number"
-            value={targetValue}
-            onChange={(e) => onTargetChange(parseInt(e.target.value) || 0)}
+            value={targetValue ?? ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              onTargetChange(val === "" ? 0 : parseInt(val));
+            }}
             className="bg-input border-border"
           />
         </div>
+      )}
+
+      {/* Run Search Button (for search algorithms) */}
+      {showTarget && onRunSearch && (
+        <Button
+          onClick={onRunSearch}
+          className="w-full bg-accent hover:bg-accent/90"
+        >
+          <Search className="w-4 h-4 mr-2" />
+          Run Search
+        </Button>
       )}
 
       {/* Generate New Array */}

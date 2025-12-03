@@ -11,21 +11,33 @@ const FibonacciSearch = () => {
   const [arraySize, setArraySize] = useState(15);
   const [speed, setSpeed] = useState(600);
   const [targetValue, setTargetValue] = useState(50);
+  const [array, setArray] = useState<number[]>([]);
   const [frames, setFrames] = useState<Frame[]>([]);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const animationRef = useRef<number>();
 
-  const generateArray = (size: number, target: number) => {
+  // Generate array only - does NOT rebuild steps
+  const generateArray = (size: number = arraySize) => {
     const arr = Array.from({ length: size }, () => Math.floor(Math.random() * 100) + 10);
-    const newFrames = generateFibonacciSearchSteps(arr, target);
+    const sortedArr = [...arr].sort((a, b) => a - b);
+    setArray(sortedArr);
+    setFrames([{ array: sortedArr, labels: { title: 'Sorted Array', detail: `Array ready. Enter target and click Run Search.` } }]);
+    setCurrentFrame(0);
+    setIsPlaying(false);
+  };
+
+  // Run search on existing array
+  const runSearch = () => {
+    if (array.length === 0) return;
+    const newFrames = generateFibonacciSearchSteps([...array], targetValue);
     setFrames(newFrames);
     setCurrentFrame(0);
     setIsPlaying(false);
   };
 
   useEffect(() => {
-    generateArray(arraySize, targetValue);
+    generateArray(arraySize);
   }, []);
 
   useEffect(() => {
@@ -225,11 +237,11 @@ const FibonacciSearch = () => {
               onNext={handleNext}
               onPrev={handlePrev}
               onReset={handleReset}
-              onRandomize={() => generateArray(arraySize, targetValue)}
+              onRandomize={() => generateArray(arraySize)}
               arraySize={arraySize}
               onArraySizeChange={(size) => {
                 setArraySize(size);
-                generateArray(size, targetValue);
+                generateArray(size);
               }}
               speed={speed}
               onSpeedChange={setSpeed}
@@ -237,10 +249,8 @@ const FibonacciSearch = () => {
               totalSteps={frames.length}
               showTarget={true}
               targetValue={targetValue}
-              onTargetChange={(value) => {
-                setTargetValue(value);
-                generateArray(arraySize, value);
-              }}
+              onTargetChange={setTargetValue}
+              onRunSearch={runSearch}
             />
 
             {/* Code Panel - Desktop */}
