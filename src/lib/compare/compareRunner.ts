@@ -27,6 +27,11 @@ export function runSortingCompare(
   
   const endTime = performance.now();
 
+  // SECTION G: Ensure at least one frame
+  if (frames.length === 0) {
+    frames = [{ array: input, values: input }];
+  }
+
   // Extract final state from last frame
   const finalFrame = frames[frames.length - 1] || frames[0];
   const finalState = {
@@ -87,6 +92,11 @@ export function runSearchingCompare(
   
   const endTime = performance.now();
 
+  // SECTION G: Ensure at least one frame
+  if (frames.length === 0) {
+    frames = [{ array: input, values: input, target }];
+  }
+
   // Extract final state from last frame
   const finalFrame = frames[frames.length - 1] || frames[0];
   const finalState = {
@@ -144,6 +154,11 @@ export function runGreedyCompare(
   
   const endTime = performance.now();
 
+  // SECTION G: Ensure at least one frame
+  if (frames.length === 0) {
+    frames = [{ type: 'graphSnapshot', nodes: [], edges: graph.edges }];
+  }
+
   // Extract final state from last frame
   const finalFrame = frames[frames.length - 1] || frames[0];
   const finalState = {
@@ -191,9 +206,15 @@ export function runDPCompare(
   
   const endTime = performance.now();
 
+  // SECTION G: Ensure at least one frame
+  if (frames.length === 0) {
+    const emptyMatrix = Array(numVertices).fill(null).map(() => Array(numVertices).fill(0));
+    frames = [{ type: "matrixSnapshot", matrix: emptyMatrix, dist: emptyMatrix, k: -1 }];
+  }
+
   // Extract final state from last matrix snapshot
   const matrixSnapshots = frames.filter((f: any) => f.type === "matrixSnapshot");
-  const finalSnapshot = matrixSnapshots[matrixSnapshots.length - 1] || matrixSnapshots[0];
+  const finalSnapshot = matrixSnapshots[matrixSnapshots.length - 1] || matrixSnapshots[0] || frames[0];
   const finalState = {
     matrix: finalSnapshot?.matrix || finalSnapshot?.dist,
     k: finalSnapshot?.k,

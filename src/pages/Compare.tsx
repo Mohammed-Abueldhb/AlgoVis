@@ -173,7 +173,7 @@ const Compare = () => {
 
     // Navigate to run page
     navigate("/compare/run", {
-      state: { compareRun }
+      state: { runData: compareRun, compareRun: compareRun }
     });
 
     setIsRunning(false);
