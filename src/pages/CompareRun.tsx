@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Play, Pause, Settings, RotateCcw, SkipForward, SkipBack, ZoomIn, Trophy } from "lucide-react";
+import { ArrowLeft, Play, Pause, Settings, RotateCcw, SkipForward, SkipBack, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -34,17 +34,41 @@ import { generateWarshallNumericFrames } from "@/lib/stepGenerators/warshallNume
 const CompareRunPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const compareRun = (location.state?.compareRun || 
-    (() => {
-      try {
-        const stored = localStorage.getItem('currentCompareRun');
-        return stored ? JSON.parse(stored) : null;
-      } catch {
-        return null;
+  
+  // SECTION A: Load compareRun from multiple sources
+  const [compareRun, setCompareRun] = useState<CompareRun | null>(() => {
+    // Try location.state first
+    if (location.state?.compareRun) {
+      return location.state.compareRun as CompareRun;
+    }
+    
+    // Try localStorage
+    try {
+      const stored = localStorage.getItem('currentCompareRun');
+      if (stored) {
+        return JSON.parse(stored) as CompareRun;
       }
-    })()) as CompareRun | null;
+    } catch (e) {
+      console.warn('Failed to parse compareRun from localStorage', e);
+    }
+    
+    return null;
+  });
 
-  const [results, setResults] = useState<CompareResult[]>([]);
+  const [results, setResults] = useState<CompareResult[]>(() => {
+    // Try to load results from localStorage
+    try {
+      const stored = localStorage.getItem('compareResults');
+      if (stored) {
+        return JSON.parse(stored) as CompareResult[];
+      }
+    } catch (e) {
+      console.warn('Failed to parse results from localStorage', e);
+    }
+    return [];
+  });
+
+  const [resultsLoaded, setResultsLoaded] = useState(false);
   const [ranking, setRanking] = useState<ReturnType<typeof computeRanking>>([]);
   const [globalSpeed, setGlobalSpeed] = useState(300);
   const [isSynced, setIsSynced] = useState(true);
@@ -54,13 +78,26 @@ const CompareRunPage = () => {
   const [isExecuting, setIsExecuting] = useState(false);
   const syncIntervalRef = useRef<number>();
   const perCardIntervalsRef = useRef<Map<string, number>>(new Map());
+  const playAllIntervalRef = useRef<number>();
 
-  // Initialize and execute algorithms
+  // Redirect if no compareRun
   useEffect(() => {
     if (!compareRun) {
       navigate("/compare", { replace: true });
       return;
     }
+
+    // Store compareRun in localStorage
+    try {
+      localStorage.setItem('currentCompareRun', JSON.stringify(compareRun));
+    } catch (e) {
+      console.warn('Failed to save compareRun to localStorage', e);
+    }
+  }, [compareRun, navigate]);
+
+  // SECTION B: Generate results before rendering UI
+  useEffect(() => {
+    if (!compareRun || resultsLoaded) return;
 
     // Initialize results with running status
     const initialResults: CompareResult[] = compareRun.algorithms.map(algo => ({
@@ -109,7 +146,6 @@ const CompareRunPage = () => {
               throw new Error(`Generator not found for ${algo.id}`);
             }
           } else if (algo.type === 'greedy') {
-            // Use the graph from compareRun (already generated deterministically)
             const graph = compareRun.input.graph as any;
             if (!graph || !graph.numVertices) {
               throw new Error('Graph not found in compare run input');
@@ -127,7 +163,6 @@ const CompareRunPage = () => {
               throw new Error(`Generator not found for ${algo.id}`);
             }
           } else if (algo.type === 'dynamic') {
-            // Use the graph from compareRun (already generated deterministically)
             const graph = compareRun.input.graph as any;
             if (!graph || !graph.numVertices) {
               throw new Error('Graph not found in compare run input');
@@ -146,6 +181,11 @@ const CompareRunPage = () => {
             throw new Error(`Unknown algorithm type: ${algo.type}`);
           }
 
+          // Ensure default values
+          result.currentFrameIndex = result.currentFrameIndex ?? 0;
+          result.isPlaying = result.isPlaying ?? false;
+          result.localSpeed = result.localSpeed ?? compareRun.settings.globalSpeedMs;
+
           newResults.push(result);
         } catch (error: any) {
           newResults.push({
@@ -157,7 +197,10 @@ const CompareRunPage = () => {
             finalState: null,
             generationTimeMs: 0,
             stats: {},
-            error: error.message || 'Unknown error'
+            error: error.message || 'Unknown error',
+            currentFrameIndex: 0,
+            isPlaying: false,
+            localSpeed: compareRun.settings.globalSpeedMs
           });
         }
 
@@ -176,87 +219,100 @@ const CompareRunPage = () => {
       const finalRanking = computeRanking(newResults, compareRun.settings.metric);
       setRanking(finalRanking);
       setIsExecuting(false);
+      setResultsLoaded(true);
+
+      // Store results in localStorage
+      try {
+        localStorage.setItem('compareResults', JSON.stringify(newResults));
+      } catch (e) {
+        console.warn('Failed to save results to localStorage', e);
+      }
     };
 
     executeAlgorithms();
-  }, [compareRun, navigate]);
+  }, [compareRun, resultsLoaded]);
 
   // Get generator function
   const getGenerator = (id: string, type: string): ((...args: any[]) => any[]) | null => {
     const generators: Record<string, any> = {
-      // Sorting
       'quick': generateQuickSortSteps,
       'merge': generateMergeSortSteps,
       'insertion': generateInsertionSortSteps,
       'selection': generateSelectionSortSteps,
       'heap': generateHeapSortSteps,
-      // Searching
       'binary': generateBinarySearchSteps,
       'linear': generateLinearSearchSteps,
       'interpolation': generateInterpolationSearchSteps,
       'exponential': generateExponentialSearchSteps,
       'fibonacci': generateFibonacciSearchSteps,
-      // Greedy
       'prim': generatePrimSteps,
       'kruskal': generateKruskalSteps,
       'dijkstra': generateDijkstraSteps,
-      // Dynamic
       'floyd': generateFloydWarshallFrames,
       'warshall': generateWarshallNumericFrames,
     };
     return generators[id] || null;
   };
 
-  // Sync playback logic
+  // SECTION E: Fixed Play All logic
+  const handlePlayAll = () => {
+    if (globalPlayState) {
+      // Pause all
+      setGlobalPlayState(false);
+      if (playAllIntervalRef.current) {
+        clearInterval(playAllIntervalRef.current);
+        playAllIntervalRef.current = undefined;
+      }
+    } else {
+      // Play all - reset all to start and set playing
+      setResults(prev =>
+        prev.map(r => ({
+          ...r,
+          currentFrameIndex: 0,
+          isPlaying: true,
+        }))
+      );
+      setGlobalPlayState(true);
+    }
+  };
+
+  // Play All playback loop
   useEffect(() => {
-    if (!isSynced || !globalPlayState || !showAnimatedPreview) {
-      // Clear sync interval
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
-        syncIntervalRef.current = undefined;
+    if (!globalPlayState || !isSynced) {
+      if (playAllIntervalRef.current) {
+        clearInterval(playAllIntervalRef.current);
+        playAllIntervalRef.current = undefined;
       }
       return;
     }
 
-    // Sync playback: advance all cards in lockstep
-    syncIntervalRef.current = window.setInterval(() => {
-      setResults(prev => {
-        const updated = prev.map(result => {
-          if (result.status !== 'finished' && result.status !== 'error') {
-            const nextIndex = Math.min(
-              (result.currentFrameIndex || 0) + 1,
-              result.frames.length - 1
-            );
-            if (nextIndex >= result.frames.length - 1) {
-              // Finished
-              return { ...result, currentFrameIndex: result.frames.length - 1, isPlaying: false };
-            }
-            return { ...result, currentFrameIndex: nextIndex };
+    playAllIntervalRef.current = window.setInterval(() => {
+      setResults(prev =>
+        prev.map(r => {
+          if (!r.isPlaying) return r;
+
+          const nextIndex = Math.min(
+            (r.currentFrameIndex || 0) + 1,
+            (r.frames?.length ?? 1) - 1
+          );
+
+          if (nextIndex >= (r.frames?.length ?? 1) - 1) {
+            // Finished
+            return { ...r, currentFrameIndex: (r.frames?.length ?? 1) - 1, isPlaying: false };
           }
-          return result;
-        });
 
-        // Check if all finished
-        const allFinished = updated.every(r => 
-          r.status === 'finished' || 
-          r.status === 'error' || 
-          (r.currentFrameIndex || 0) >= (r.frames.length - 1)
-        );
-
-        if (allFinished) {
-          setGlobalPlayState(false);
-        }
-
-        return updated;
-      });
+          return { ...r, currentFrameIndex: nextIndex };
+        })
+      );
     }, globalSpeed);
 
     return () => {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
+      if (playAllIntervalRef.current) {
+        clearInterval(playAllIntervalRef.current);
+        playAllIntervalRef.current = undefined;
       }
     };
-  }, [isSynced, globalPlayState, globalSpeed, showAnimatedPreview]);
+  }, [globalPlayState, globalSpeed, isSynced]);
 
   // Per-card playback (when not synced)
   const handleCardPlayPause = useCallback((resultId: string, playing: boolean) => {
@@ -268,7 +324,6 @@ const CompareRunPage = () => {
     }));
 
     if (!playing) {
-      // Stop per-card interval
       const interval = perCardIntervalsRef.current.get(resultId);
       if (interval) {
         clearInterval(interval);
@@ -277,9 +332,8 @@ const CompareRunPage = () => {
       return;
     }
 
-    // Start per-card interval
     const result = results.find(r => r.algorithmId === resultId);
-    if (!result || result.frames.length === 0) return;
+    if (!result || !result.frames || result.frames.length === 0) return;
 
     const speed = result.localSpeed || globalSpeed;
     const interval = window.setInterval(() => {
@@ -291,7 +345,6 @@ const CompareRunPage = () => {
             (r.frames?.length ?? 1) - 1
           );
           if (nextIndex >= (r.frames?.length ?? 1) - 1) {
-            // Finished - stop this interval
             const cardInterval = perCardIntervalsRef.current.get(resultId);
             if (cardInterval) {
               clearInterval(cardInterval);
@@ -312,7 +365,7 @@ const CompareRunPage = () => {
       if (r.algorithmId === resultId) {
         const current = r.currentFrameIndex || 0;
         const next = direction === 'next' 
-          ? Math.min(current + 1, r.frames.length - 1)
+          ? Math.min(current + 1, (r.frames?.length ?? 1) - 1)
           : Math.max(current - 1, 0);
         return { ...r, currentFrameIndex: next, isPlaying: false };
       }
@@ -337,12 +390,14 @@ const CompareRunPage = () => {
   // Cleanup all intervals on unmount
   useEffect(() => {
     return () => {
-      // Cleanup sync interval
       if (syncIntervalRef.current) {
         clearInterval(syncIntervalRef.current);
         syncIntervalRef.current = undefined;
       }
-      // Cleanup all per-card intervals
+      if (playAllIntervalRef.current) {
+        clearInterval(playAllIntervalRef.current);
+        playAllIntervalRef.current = undefined;
+      }
       perCardIntervalsRef.current.forEach((intervalId) => {
         clearInterval(intervalId);
       });
@@ -351,9 +406,13 @@ const CompareRunPage = () => {
   }, []);
 
   const handleRunAgain = () => {
+    // Clear localStorage
+    localStorage.removeItem('currentCompareRun');
+    localStorage.removeItem('compareResults');
     navigate("/compare");
   };
 
+  // SECTION C: Always show loading or content, never blank
   if (!compareRun) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -368,16 +427,28 @@ const CompareRunPage = () => {
     );
   }
 
+  // Show loading state only if results haven't loaded yet
+  if (!resultsLoaded && results.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary mb-4 mx-auto"></div>
+          <p className="text-xl text-muted-foreground">Generating results...</p>
+        </div>
+      </div>
+    );
+  }
+
   const algorithmType = compareRun.algorithms[0]?.type === "dynamic" ? "dp" : 
                         compareRun.algorithms[0]?.type || "sorting";
 
   // Get current frame for a result
   const getCurrentFrame = (result: CompareResult) => {
-    if (!showAnimatedPreview || result.frames.length === 0) {
+    if (!showAnimatedPreview || !result.frames || result.frames.length === 0) {
       return result.finalState;
     }
     const index = result.currentFrameIndex || 0;
-    return result.frames[index] || result.finalState;
+    return result.frames[index] || result.frames[result.frames.length - 1] || result.finalState;
   };
 
   // Get place for a result
@@ -475,19 +546,7 @@ const CompareRunPage = () => {
               {/* Global Play/Pause */}
               {showAnimatedPreview && isSynced && (
                 <Button
-                  onClick={() => {
-                    if (globalPlayState) {
-                      setGlobalPlayState(false);
-                    } else {
-                      // Reset all to start
-                      setResults(prev => prev.map(r => ({
-                        ...r,
-                        currentFrameIndex: 0,
-                        isPlaying: true
-                      })));
-                      setGlobalPlayState(true);
-                    }
-                  }}
+                  onClick={handlePlayAll}
                   size="sm"
                   variant="outline"
                 >
@@ -525,17 +584,18 @@ const CompareRunPage = () => {
           </div>
         </div>
 
-        {/* Results Grid */}
+        {/* SECTION F: Results Grid - Always Renders */}
         <div 
           className="grid gap-6 w-full mb-6"
           style={{
-            gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))"
+            gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
+            gap: "20px"
           }}
         >
           {results.map((result) => {
             const place = getPlace(result.algorithmId);
             const currentFrame = getCurrentFrame(result);
-            const isPlaying = isSynced ? globalPlayState : result.isPlaying || false;
+            const isPlaying = isSynced ? globalPlayState : (result.isPlaying || false);
 
             return (
               <div
@@ -595,18 +655,16 @@ const CompareRunPage = () => {
                   )}
                 </div>
 
-                {/* Mini Visualization */}
+                {/* SECTION D: Mini Visualization - Fixed Props */}
                 <div className="mb-4 flex-1 min-h-[300px]">
                   <MiniVisualizer
                     algorithmType={result.algorithmType === "dynamic" ? "dp" : result.algorithmType}
-                    frame={currentFrame}
-                    frames={result.frames}
+                    frames={result.frames ?? []}
+                    finalState={currentFrame || result.finalState}
                     playbackSpeedMs={result.localSpeed || globalSpeed}
                     showAnimatedPreview={showAnimatedPreview}
-                    localSpeed={result.localSpeed}
-                    onLocalSpeedChange={(speed) => handleLocalSpeedChange(result.algorithmId, speed)}
                     isSynced={isSynced}
-                    globalPlayState={globalPlayState}
+                    globalPlayState={isPlaying}
                     onPlayStateChange={(playing) => {
                       if (!isSynced) {
                         handleCardPlayPause(result.algorithmId, playing);
@@ -614,15 +672,21 @@ const CompareRunPage = () => {
                         setGlobalPlayState(playing);
                       }
                     }}
+                    onFrameChange={(frameIndex) => {
+                      setResults(prev => prev.map(r => 
+                        r.algorithmId === result.algorithmId 
+                          ? { ...r, currentFrameIndex: frameIndex }
+                          : r
+                      ));
+                    }}
                     onZoom={() => {
-                      // TODO: Open modal with full-size visualizer
                       console.log("Zoom clicked for", result.algorithmName);
                     }}
                   />
                 </div>
 
                 {/* Per-Card Controls */}
-                {showAnimatedPreview && result.frames.length > 0 && (
+                {showAnimatedPreview && result.frames && result.frames.length > 0 && (
                   <div className="flex items-center justify-between gap-2 mb-4">
                     <div className="flex items-center gap-1">
                       <Button
@@ -639,7 +703,7 @@ const CompareRunPage = () => {
                         size="sm"
                         onClick={() => {
                           if (isSynced) {
-                            setGlobalPlayState(!globalPlayState);
+                            handlePlayAll();
                           } else {
                             handleCardPlayPause(result.algorithmId, !isPlaying);
                           }
@@ -652,7 +716,7 @@ const CompareRunPage = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleCardStep(result.algorithmId, 'next')}
-                        disabled={(result.currentFrameIndex || 0) >= result.frames.length - 1}
+                        disabled={(result.currentFrameIndex || 0) >= (result.frames?.length ?? 1) - 1}
                         className="h-7 px-2"
                       >
                         <SkipForward className="w-3 h-3" />
@@ -699,7 +763,7 @@ const CompareRunPage = () => {
                         {result.stats.swaps !== undefined && (
                           <div>Swaps: {result.stats.swaps}</div>
                         )}
-                        <div>Steps: {result.stats.steps || result.frames.length}</div>
+                        <div>Steps: {result.stats.steps || (result.frames?.length ?? 0)}</div>
                       </div>
                     )}
                   </div>
