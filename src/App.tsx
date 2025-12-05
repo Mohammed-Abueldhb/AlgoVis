@@ -17,6 +17,7 @@ import InsertionSort from "./pages/algorithms/insertion-sort";
 import SelectionSort from "./pages/algorithms/selection-sort";
 import MergeSort from "./pages/algorithms/merge-sort";
 import HeapSort from "./pages/algorithms/heap-sort";
+import BubbleSort from "./pages/algorithms/bubble-sort";
 import InterpolationSearch from "./pages/algorithms/interpolation-search";
 import ExponentialSearch from "./pages/algorithms/exponential-search";
 import FibonacciSearch from "./pages/algorithms/fibonacci-search";
@@ -46,6 +47,7 @@ const App = () => (
           <Route path="/algorithms/selection-sort" element={<SelectionSort />} />
           <Route path="/algorithms/merge-sort" element={<MergeSort />} />
           <Route path="/algorithms/heap-sort" element={<HeapSort />} />
+          <Route path="/algorithms/bubble-sort" element={<BubbleSort />} />
           <Route path="/algorithms/interpolation-search" element={<InterpolationSearch />} />
           <Route path="/algorithms/exponential-search" element={<ExponentialSearch />} />
           <Route path="/algorithms/fibonacci-search" element={<FibonacciSearch />} />
