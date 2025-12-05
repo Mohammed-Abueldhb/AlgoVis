@@ -275,11 +275,12 @@ export const MiniVisualizer = ({
     const edges = currentFrame.edges || [];
     const selectedEdges = currentFrame.selectedEdges || [];
     const currentEdge = currentFrame.currentEdge;
-    const numVertices = currentFrame?.visited?.length 
-      ? Math.max(...currentFrame.visited) + 1
-      : currentFrame?.edges?.length 
-        ? Math.max(...currentFrame.edges.flatMap((e: any) => [e.u, e.v])) + 1
-        : 6;
+    // SECTION D: Use numVertices from frame, fallback to calculating from edges
+    const numVertices = currentFrame.numVertices ?? (
+      edges.length > 0
+        ? Math.max(...edges.flatMap((e: any) => [e.u, e.v])) + 1
+        : 6
+    );
 
     return (
       <div className="bg-card rounded-lg p-3 border border-border/50 min-w-[220px] flex-1">

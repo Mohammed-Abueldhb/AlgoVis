@@ -6,6 +6,7 @@ export interface GraphFrame {
   selectedEdges: Edge[];
   currentEdge?: Edge;
   visited: number[];
+  numVertices?: number; // Include numVertices for proper visualization
   labels?: { title?: string; detail?: string };
   finalState?: {
     mstEdges: Edge[];
@@ -37,11 +38,13 @@ export function generatePrimSteps(graph: Graph): GraphFrame[] {
   }
   pq.sort((a, b) => a[0] - b[0]);
   
+  // Initial frame with full graph state
   frames.push({
     type: 'init',
     edges: [...edges],
     selectedEdges: [],
     visited: [0],
+    numVertices: numVertices,
     labels: { title: 'Initialize', detail: 'Starting from vertex 0' }
   });
   
@@ -54,27 +57,39 @@ export function generatePrimSteps(graph: Graph): GraphFrame[] {
     
     const currentEdge: Edge = { u: from, v: to, weight };
     
-    // Emit exploring frame
+    // Emit exploring frame (before adding edge)
     frames.push({
       type: 'graphSnapshot',
       edges: [...edges],
       selectedEdges: [...selectedEdges],
       currentEdge,
       visited: Array.from(visited),
+      numVertices: numVertices,
       labels: { title: 'Exploring', detail: `Checking edge (${from},${to}) w=${weight}` }
     });
     
     visited.add(to);
     selectedEdges.push(currentEdge);
     
-    // Emit chosen frame
+    // Emit chosen frame (after adding edge)
     frames.push({
       type: 'graphSnapshot',
       edges: [...edges],
       selectedEdges: [...selectedEdges],
       currentEdge,
       visited: Array.from(visited),
+      numVertices: numVertices,
       labels: { title: 'Chosen', detail: `Added to MST` }
+    });
+    
+    // Emit frame after updating priority queue (showing new candidate edges)
+    frames.push({
+      type: 'graphSnapshot',
+      edges: [...edges],
+      selectedEdges: [...selectedEdges],
+      visited: Array.from(visited),
+      numVertices: numVertices,
+      labels: { title: 'Updated', detail: `Added edges from vertex ${to} to queue` }
     });
     
     // Add edges from newly added node
@@ -93,6 +108,7 @@ export function generatePrimSteps(graph: Graph): GraphFrame[] {
     edges: [...edges],
     selectedEdges: [...selectedEdges],
     visited: Array.from(visited),
+    numVertices: numVertices,
     finalState: {
       mstEdges: [...selectedEdges],
       totalWeight

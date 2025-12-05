@@ -143,10 +143,13 @@ export function runGreedyCompare(
   let frames: any[] = [];
   let error: string | undefined;
   
+  // SECTION A: Deep clone graph to prevent mutations
+  const clonedGraph = JSON.parse(JSON.stringify(graph));
+  
   try {
     frames = startVertex !== undefined 
-      ? generator(graph, startVertex)
-      : generator(graph);
+      ? generator(clonedGraph, startVertex)
+      : generator(clonedGraph);
   } catch (e: any) {
     error = e.message || 'Unknown error';
     frames = [];
@@ -154,17 +157,30 @@ export function runGreedyCompare(
   
   const endTime = performance.now();
 
-  // SECTION G: Ensure at least one frame
+  // SECTION G: Ensure at least one frame with numVertices
   if (frames.length === 0) {
-    frames = [{ type: 'graphSnapshot', nodes: [], edges: graph.edges }];
+    frames = [{ 
+      type: 'graphSnapshot', 
+      edges: clonedGraph.edges,
+      selectedEdges: [],
+      visited: [],
+      numVertices: clonedGraph.numVertices
+    }];
   }
+
+  // Ensure all frames have numVertices
+  frames = frames.map(frame => ({
+    ...frame,
+    numVertices: frame.numVertices ?? clonedGraph.numVertices
+  }));
 
   // Extract final state from last frame
   const finalFrame = frames[frames.length - 1] || frames[0];
   const finalState = {
-    edges: finalFrame?.edges || graph.edges,
+    edges: finalFrame?.edges || clonedGraph.edges,
     selectedEdges: finalFrame?.selectedEdges || [],
     visited: finalFrame?.visited || [],
+    numVertices: clonedGraph.numVertices,
     finalState: finalFrame?.finalState || finalFrame
   };
 

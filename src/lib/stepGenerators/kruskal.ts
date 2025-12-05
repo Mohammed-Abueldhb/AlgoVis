@@ -6,6 +6,7 @@ export interface GraphFrame {
   selectedEdges: Edge[];
   currentEdge?: Edge;
   visited?: number[];
+  numVertices?: number; // Include numVertices for proper visualization
   labels?: { title?: string; detail?: string };
   finalState?: {
     mstEdges: Edge[];
@@ -55,6 +56,7 @@ export function generateKruskalSteps(graph: Graph): GraphFrame[] {
     type: 'init',
     edges: [...edges],
     selectedEdges: [],
+    numVertices: numVertices,
     labels: { title: 'Initialize', detail: `Sorted ${edges.length} edges by weight` }
   });
   
@@ -70,6 +72,7 @@ export function generateKruskalSteps(graph: Graph): GraphFrame[] {
       edges: [...edges],
       selectedEdges: [...selectedEdges],
       currentEdge: edge,
+      numVertices: numVertices,
       labels: { title: 'Exploring', detail: `Checking edge (${edge.u},${edge.v}) w=${edge.weight}` }
     });
     
@@ -81,6 +84,7 @@ export function generateKruskalSteps(graph: Graph): GraphFrame[] {
         edges: [...edges],
         selectedEdges: [...selectedEdges],
         currentEdge: edge,
+        numVertices: numVertices,
         labels: { title: 'Chosen', detail: `Added to MST` }
       });
     } else {
@@ -90,6 +94,7 @@ export function generateKruskalSteps(graph: Graph): GraphFrame[] {
         edges: [...edges],
         selectedEdges: [...selectedEdges],
         currentEdge: edge,
+        numVertices: numVertices,
         labels: { title: 'Rejected', detail: 'Would create cycle' }
       });
     }
@@ -101,6 +106,7 @@ export function generateKruskalSteps(graph: Graph): GraphFrame[] {
     type: 'complete',
     edges: [...edges],
     selectedEdges: [...selectedEdges],
+    numVertices: numVertices,
     finalState: {
       mstEdges: [...selectedEdges],
       totalWeight

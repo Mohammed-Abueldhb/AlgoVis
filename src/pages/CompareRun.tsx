@@ -136,17 +136,20 @@ const CompareRunPage = () => {
               throw new Error(`Generator not found for ${algo.id}`);
             }
           } else if (algo.type === 'greedy') {
+            // SECTION A: Use shared graph, deep clone for each algorithm
             const graph = run.input.graph as any;
             if (!graph || !graph.numVertices) {
               throw new Error('Graph not found in compare run input');
             }
+            // Deep clone the shared graph to prevent mutations
+            const clonedGraph = JSON.parse(JSON.stringify(graph));
             const generator = getGenerator(algo.id);
             if (generator) {
               result = runGreedyCompare(
                 algo.id, 
                 algo.name, 
                 generator, 
-                graph,
+                clonedGraph,
                 algo.id === 'dijkstra' ? 0 : undefined
               );
             } else {
