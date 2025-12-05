@@ -283,25 +283,25 @@ const CompareRunPage = () => {
 
     const speed = result.localSpeed || globalSpeed;
     const interval = window.setInterval(() => {
-      setResults(prev => prev.map(r => {
-        if (r.algorithmId === resultId) {
+      setResults(prevResults =>
+        prevResults.map(r => {
+          if (r.algorithmId !== resultId) return r;
           const nextIndex = Math.min(
             (r.currentFrameIndex || 0) + 1,
-            r.frames.length - 1
+            (r.frames?.length ?? 1) - 1
           );
-          if (nextIndex >= r.frames.length - 1) {
-            // Finished
+          if (nextIndex >= (r.frames?.length ?? 1) - 1) {
+            // Finished - stop this interval
             const cardInterval = perCardIntervalsRef.current.get(resultId);
             if (cardInterval) {
               clearInterval(cardInterval);
               perCardIntervalsRef.current.delete(resultId);
             }
-            return { ...r, currentFrameIndex: r.frames.length - 1, isPlaying: false };
+            return { ...r, currentFrameIndex: (r.frames?.length ?? 1) - 1, isPlaying: false };
           }
           return { ...r, currentFrameIndex: nextIndex };
-        }
-        return r;
-      });
+        })
+      );
     }, speed);
 
     perCardIntervalsRef.current.set(resultId, interval);
@@ -333,6 +333,22 @@ const CompareRunPage = () => {
       setRanking(newRanking);
     }
   }, [results, selectedMetric]);
+
+  // Cleanup all intervals on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup sync interval
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = undefined;
+      }
+      // Cleanup all per-card intervals
+      perCardIntervalsRef.current.forEach((intervalId) => {
+        clearInterval(intervalId);
+      });
+      perCardIntervalsRef.current.clear();
+    };
+  }, []);
 
   const handleRunAgain = () => {
     navigate("/compare");
