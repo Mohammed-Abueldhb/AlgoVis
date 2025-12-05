@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ControlsPanel } from "@/components/ControlsPanel";
 import { CodePanel } from "@/components/CodePanel";
 import { DivideTreeView } from "@/components/DivideTreeView";
+import { AlgorithmInfo } from "@/components/AlgorithmInfo";
 import { generateQuickSortSteps } from "@/lib/stepGenerators/quickSort";
 
 interface Frame {
@@ -127,41 +128,21 @@ const QuickSort = () => {
           </p>
         </div>
 
+        {/* Algorithm Info - Full Width */}
+        <AlgorithmInfo
+          name="Quick Sort"
+          description="Divide-and-conquer sorting algorithm using partitioning. Selects a pivot element and partitions the array around it, then recursively sorts the subarrays."
+          complexity={{
+            best: "O(n log n)",
+            avg: "O(n log n)",
+            worst: "O(n²)"
+          }}
+          notes="Array does not regenerate when target/controls change unless user clicks Generate Array."
+        />
+
         <div className="grid lg:grid-cols-[1fr_400px] gap-8">
           {/* Main Visualizer */}
           <div className="space-y-6">
-            {/* Info Card */}
-            <div className="bg-card/80 backdrop-blur-sm rounded-xl p-6 border-2 border-border/70 shadow-lg">
-              <div className="flex items-start gap-3 mb-4">
-                <Info className="w-6 h-6 text-accent mt-1 flex-shrink-0" />
-                <div className="flex-1">
-                  <h3 className="font-bold text-lg mb-3">Algorithm Complexity</h3>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div className="bg-background/50 p-3 rounded-lg border border-border/50">
-                      <div className="text-muted-foreground mb-1">Best Case</div>
-                      <div className="font-mono font-bold text-success">O(n log n)</div>
-                    </div>
-                    <div className="bg-background/50 p-3 rounded-lg border border-border/50">
-                      <div className="text-muted-foreground mb-1">Average</div>
-                      <div className="font-mono font-bold text-info">O(n log n)</div>
-                    </div>
-                    <div className="bg-background/50 p-3 rounded-lg border border-border/50">
-                      <div className="text-muted-foreground mb-1">Worst Case</div>
-                      <div className="font-mono font-bold text-warning">O(n²)</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {frame.labels && (
-                <div className="mt-4 pt-4 border-t border-border/50">
-                  <div className="font-bold text-accent text-lg">{frame.labels.title}</div>
-                  {frame.labels.detail && (
-                    <div className="text-sm text-muted-foreground mt-2">{frame.labels.detail}</div>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* Recursion Tree View */}
             <DivideTreeView frames={frames} currentFrameIndex={currentFrame} />
 

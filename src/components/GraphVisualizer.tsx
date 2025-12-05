@@ -5,7 +5,7 @@ interface Edge {
 }
 
 interface GraphFrame {
-  type: 'init' | 'edgeConsider' | 'edgeSelect' | 'edgeSkip' | 'vertexRelax' | 'complete';
+  type: 'init' | 'edgeConsider' | 'edgeSelect' | 'edgeSkip' | 'vertexRelax' | 'graphSnapshot' | 'complete';
   edges: Edge[];
   selectedEdges: Edge[];
   currentEdge?: Edge;

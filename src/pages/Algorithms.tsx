@@ -1,44 +1,56 @@
-import { useState } from "react";
-import { Search, ArrowUpDown, Boxes, Network } from "lucide-react";
+import { useState, useEffect } from "react";
 import { TabBar } from "@/components/TabBar";
 import { AlgorithmCard } from "@/components/AlgorithmCard";
+import { algorithmIcons } from "@/lib/algorithmIcons";
 
 const tabs = [
   { id: "searching", label: "Searching" },
   { id: "sorting", label: "Sorting" },
   { id: "divide-conquer", label: "Divide & Conquer" },
   { id: "graph", label: "Greedy & Graph" },
+  { id: "dynamic-programming", label: "Dynamic Programming" },
 ];
 
 const algorithms = {
   searching: [
-    { name: "Linear Search", slug: "linear-search", description: "Sequential search through array elements", icon: <Search className="w-6 h-6 text-accent" /> },
-    { name: "Binary Search", slug: "binary-search", description: "Efficient search in sorted arrays using divide and conquer", icon: <Search className="w-6 h-6 text-primary" /> },
-    { name: "Interpolation Search", slug: "interpolation-search", description: "Improved binary search for uniformly distributed data", icon: <Search className="w-6 h-6 text-cyan" /> },
-    { name: "Exponential Search", slug: "exponential-search", description: "Search algorithm for unbounded or infinite arrays", icon: <Search className="w-6 h-6 text-warning" /> },
-    { name: "Fibonacci Search", slug: "fibonacci-search", description: "Divide and conquer using Fibonacci numbers", icon: <Search className="w-6 h-6 text-success" /> },
+    { name: "Linear Search", slug: "linear-search", description: "Sequential search through array elements" },
+    { name: "Binary Search", slug: "binary-search", description: "Efficient search in sorted arrays using divide and conquer" },
+    { name: "Interpolation Search", slug: "interpolation-search", description: "Improved binary search for uniformly distributed data" },
+    { name: "Exponential Search", slug: "exponential-search", description: "Search algorithm for unbounded or infinite arrays" },
+    { name: "Fibonacci Search", slug: "fibonacci-search", description: "Divide and conquer using Fibonacci numbers" },
   ],
   sorting: [
-    { name: "Selection Sort", slug: "selection-sort", description: "Simple sorting by repeatedly finding minimum element", icon: <ArrowUpDown className="w-6 h-6 text-accent" /> },
-    { name: "Insertion Sort", slug: "insertion-sort", description: "Build sorted array one element at a time", icon: <ArrowUpDown className="w-6 h-6 text-primary" /> },
-    { name: "Merge Sort", slug: "merge-sort", description: "Divide and conquer sorting with guaranteed O(n log n)", icon: <ArrowUpDown className="w-6 h-6 text-cyan" /> },
-    { name: "Quick Sort", slug: "quick-sort", description: "Efficient partitioning-based sorting algorithm", icon: <ArrowUpDown className="w-6 h-6 text-warning" /> },
-    { name: "Heap Sort", slug: "heap-sort", description: "Comparison-based sorting using binary heap", icon: <ArrowUpDown className="w-6 h-6 text-success" /> },
+    { name: "Selection Sort", slug: "selection-sort", description: "Simple sorting by repeatedly finding minimum element" },
+    { name: "Insertion Sort", slug: "insertion-sort", description: "Build sorted array one element at a time" },
+    { name: "Merge Sort", slug: "merge-sort", description: "Divide and conquer sorting with guaranteed O(n log n)" },
+    { name: "Quick Sort", slug: "quick-sort", description: "Efficient partitioning-based sorting algorithm" },
+    { name: "Heap Sort", slug: "heap-sort", description: "Comparison-based sorting using binary heap" },
   ],
   "divide-conquer": [
-    { name: "Binary Search", slug: "binary-search", description: "Repeatedly divide search space in half", icon: <Boxes className="w-6 h-6 text-primary" /> },
-    { name: "Merge Sort", slug: "merge-sort", description: "Divide array into halves and merge sorted parts", icon: <Boxes className="w-6 h-6 text-cyan" /> },
-    { name: "Quick Sort", slug: "quick-sort", description: "Partition around pivot and recursively sort", icon: <Boxes className="w-6 h-6 text-warning" /> },
+    { name: "Binary Search", slug: "binary-search", description: "Repeatedly divide search space in half" },
+    { name: "Merge Sort", slug: "merge-sort", description: "Divide array into halves and merge sorted parts" },
+    { name: "Quick Sort", slug: "quick-sort", description: "Partition around pivot and recursively sort" },
   ],
   graph: [
-    { name: "Prim's Algorithm", slug: "prim", description: "Find minimum spanning tree using greedy approach", icon: <Network className="w-6 h-6 text-success" /> },
-    { name: "Kruskal's Algorithm", slug: "kruskal", description: "Build MST by adding edges in order of weight", icon: <Network className="w-6 h-6 text-accent" /> },
-    { name: "Dijkstra's Algorithm", slug: "dijkstra", description: "Find shortest path from source to all vertices", icon: <Network className="w-6 h-6 text-primary" /> },
+    { name: "Prim's Algorithm", slug: "prim", description: "Find minimum spanning tree using greedy approach" },
+    { name: "Kruskal's Algorithm", slug: "kruskal", description: "Build MST by adding edges in order of weight" },
+    { name: "Dijkstra's Algorithm", slug: "dijkstra", description: "Find shortest path from source to all vertices" },
+  ],
+  "dynamic-programming": [
+    { name: "Floyd–Warshall", slug: "floyd-warshall", description: "All-pairs shortest paths with dynamic programming" },
+    { name: "Warshall", slug: "warshall", description: "Transitive closure using dynamic programming" },
   ],
 };
 
 const Algorithms = () => {
-  const [activeTab, setActiveTab] = useState("searching");
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = sessionStorage.getItem("algorithmsActiveTab");
+    return saved || "searching";
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem("algorithmsActiveTab", activeTab);
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen p-4 md:p-8">
@@ -59,16 +71,19 @@ const Algorithms = () => {
 
         {/* Algorithm Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide-up">
-          {algorithms[activeTab as keyof typeof algorithms].map((algo) => (
-            <AlgorithmCard
-              key={algo.slug}
-              name={algo.name}
-              description={algo.description}
-              slug={algo.slug}
-              icon={algo.icon}
-              category={tabs.find(t => t.id === activeTab)?.label}
-            />
-          ))}
+          {algorithms[activeTab as keyof typeof algorithms].map((algo) => {
+            const Icon = algorithmIcons[algo.slug as keyof typeof algorithmIcons];
+            return (
+              <AlgorithmCard
+                key={algo.slug}
+                name={algo.name}
+                description={algo.description}
+                slug={algo.slug}
+                category={tabs.find(t => t.id === activeTab)?.label}
+                icon={Icon ? <Icon className="w-7 h-7 text-accent" /> : undefined}
+              />
+            );
+          })}
         </div>
 
         {/* Footer Info */}

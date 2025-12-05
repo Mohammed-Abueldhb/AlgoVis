@@ -1,12 +1,16 @@
 import { Edge, Graph } from '../graphGenerator';
 
 export interface GraphFrame {
-  type: 'init' | 'edgeConsider' | 'edgeSelect' | 'edgeSkip' | 'complete';
+  type: 'init' | 'graphSnapshot' | 'complete';
   edges: Edge[];
   selectedEdges: Edge[];
   currentEdge?: Edge;
   visited: number[];
   labels?: { title?: string; detail?: string };
+  finalState?: {
+    mstEdges: Edge[];
+    totalWeight: number;
+  };
 }
 
 export function generatePrimSteps(graph: Graph): GraphFrame[] {
@@ -22,34 +26,79 @@ export function generatePrimSteps(graph: Graph): GraphFrame[] {
   
   const visited = new Set<number>([0]);
   const selectedEdges: Edge[] = [];
+  // Priority queue: [weight, from, to]
   let pq: [number, number, number][] = [];
   
-  for (const edge of adj.get(0)!) pq.push([edge.weight, 0, edge.v]);
+  // Add edges from starting vertex
+  for (const edge of adj.get(0)!) {
+    if (!visited.has(edge.v)) {
+      pq.push([edge.weight, 0, edge.v]);
+    }
+  }
   pq.sort((a, b) => a[0] - b[0]);
   
-  frames.push({ type: 'init', edges: [...edges], selectedEdges: [], visited: [0], labels: { title: 'Initialize', detail: 'Starting from vertex 0' } });
+  frames.push({
+    type: 'init',
+    edges: [...edges],
+    selectedEdges: [],
+    visited: [0],
+    labels: { title: 'Initialize', detail: 'Starting from vertex 0' }
+  });
   
   while (pq.length > 0 && selectedEdges.length < numVertices - 1) {
     const [weight, from, to] = pq.shift()!;
-    const currentEdge: Edge = { u: from, v: to, weight };
-    
-    frames.push({ type: 'edgeConsider', edges: [...edges], selectedEdges: [...selectedEdges], currentEdge, visited: Array.from(visited), labels: { title: 'Consider', detail: `Edge (${from},${to}) w=${weight}` } });
     
     if (visited.has(to)) {
-      frames.push({ type: 'edgeSkip', edges: [...edges], selectedEdges: [...selectedEdges], currentEdge, visited: Array.from(visited), labels: { title: 'Skip', detail: 'Already visited' } });
-      continue;
+      continue; // Skip if already visited
     }
+    
+    const currentEdge: Edge = { u: from, v: to, weight };
+    
+    // Emit exploring frame
+    frames.push({
+      type: 'graphSnapshot',
+      edges: [...edges],
+      selectedEdges: [...selectedEdges],
+      currentEdge,
+      visited: Array.from(visited),
+      labels: { title: 'Exploring', detail: `Checking edge (${from},${to}) w=${weight}` }
+    });
     
     visited.add(to);
     selectedEdges.push(currentEdge);
-    frames.push({ type: 'edgeSelect', edges: [...edges], selectedEdges: [...selectedEdges], currentEdge, visited: Array.from(visited), labels: { title: 'Select', detail: `Added edge` } });
     
+    // Emit chosen frame
+    frames.push({
+      type: 'graphSnapshot',
+      edges: [...edges],
+      selectedEdges: [...selectedEdges],
+      currentEdge,
+      visited: Array.from(visited),
+      labels: { title: 'Chosen', detail: `Added to MST` }
+    });
+    
+    // Add edges from newly added node
     for (const edge of adj.get(to)!) {
-      if (!visited.has(edge.v)) pq.push([edge.weight, to, edge.v]);
+      if (!visited.has(edge.v)) {
+        pq.push([edge.weight, to, edge.v]);
+      }
     }
     pq.sort((a, b) => a[0] - b[0]);
   }
   
-  frames.push({ type: 'complete', edges: [...edges], selectedEdges: [...selectedEdges], visited: Array.from(visited), labels: { title: 'Complete', detail: `MST weight: ${selectedEdges.reduce((s, e) => s + e.weight, 0)}` } });
+  const totalWeight = selectedEdges.reduce((sum, e) => sum + e.weight, 0);
+  
+  frames.push({
+    type: 'complete',
+    edges: [...edges],
+    selectedEdges: [...selectedEdges],
+    visited: Array.from(visited),
+    finalState: {
+      mstEdges: [...selectedEdges],
+      totalWeight
+    },
+    labels: { title: 'Complete', detail: `MST weight: ${totalWeight}` }
+  });
+  
   return frames;
 }

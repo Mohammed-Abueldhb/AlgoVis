@@ -17,9 +17,11 @@ export const AlgorithmCard = ({ name, description, slug, icon, category }: Algor
   return (
     <div className="bg-card rounded-xl p-6 hover-lift glow-on-hover border border-border group">
       <div className="flex items-start gap-4 mb-4">
-        <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0 group-hover:bg-accent/20 transition-colors">
-          {icon || <div className="w-6 h-6 bg-accent/50 rounded" />}
-        </div>
+        {icon && (
+          <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0 group-hover:bg-accent/20 transition-colors">
+            {icon}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <h3 className="text-xl font-semibold mb-1 text-foreground truncate">{name}</h3>
           {category && (

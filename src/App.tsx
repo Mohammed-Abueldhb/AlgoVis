@@ -7,6 +7,7 @@ import { Navigation } from "./components/Navigation";
 import Home from "./pages/Home";
 import Algorithms from "./pages/Algorithms";
 import Compare from "./pages/Compare";
+import CompareRunPage from "./pages/CompareRun";
 import About from "./pages/About";
 
 import QuickSort from "./pages/algorithms/quick-sort";
@@ -22,6 +23,8 @@ import FibonacciSearch from "./pages/algorithms/fibonacci-search";
 import Prim from "./pages/algorithms/prim";
 import Kruskal from "./pages/algorithms/kruskal";
 import Dijkstra from "./pages/algorithms/dijkstra";
+import FloydWarshall from "./pages/algorithms/floyd-warshall";
+import Warshall from "./pages/algorithms/warshall";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,7 +52,10 @@ const App = () => (
           <Route path="/algorithms/prim" element={<Prim />} />
           <Route path="/algorithms/kruskal" element={<Kruskal />} />
           <Route path="/algorithms/dijkstra" element={<Dijkstra />} />
+          <Route path="/algorithms/floyd-warshall" element={<FloydWarshall />} />
+          <Route path="/algorithms/warshall" element={<Warshall />} />
           <Route path="/compare" element={<Compare />} />
+          <Route path="/compare/run" element={<CompareRunPage />} />
           <Route path="/about" element={<About />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
