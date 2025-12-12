@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ControlsPanel } from "@/components/ControlsPanel";
 import { CodePanel } from "@/components/CodePanel";
 import { generateLinearSearchSteps, Frame } from "@/lib/stepGenerators/linearSearch";
+import { AlgorithmInfo } from "@/components/AlgorithmInfo";
 
 const LinearSearch = () => {
   const navigate = useNavigate();
   const [arraySize, setArraySize] = useState(15);
   const [speed, setSpeed] = useState(600);
-  const [targetValue, setTargetValue] = useState(50);
+  const [target, setTarget] = useState<number | "">("");
   const [array, setArray] = useState<number[]>([]);
   const [frames, setFrames] = useState<Frame[]>([]);
   const [currentFrame, setCurrentFrame] = useState(0);
@@ -26,10 +27,10 @@ const LinearSearch = () => {
     setIsPlaying(false);
   };
 
-  // Run search on existing array
+  // Run search on existing array with current target
   const runSearch = () => {
-    if (array.length === 0) return;
-    const newFrames = generateLinearSearchSteps([...array], targetValue);
+    if (array.length === 0 || target === "") return;
+    const newFrames = generateLinearSearchSteps([...array], Number(target));
     setFrames(newFrames);
     setCurrentFrame(0);
     setIsPlaying(false);
@@ -108,7 +109,7 @@ const LinearSearch = () => {
     <div className="min-h-screen p-4 md:p-8">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <Button
             onClick={() => navigate("/algorithms")}
             variant="ghost"
@@ -118,44 +119,23 @@ const LinearSearch = () => {
             Back to Algorithms
           </Button>
           <h1 className="text-4xl font-bold mb-2">Linear Search Visualizer</h1>
-          <p className="text-muted-foreground">Simple sequential search through array elements</p>
+          <p className="text-muted-foreground">Simple sequential search through array elements.</p>
         </div>
+
+        {/* Algorithm Info - Full Width */}
+        <AlgorithmInfo
+          name="Linear Search"
+          description="Simple sequential search algorithm that scans each element in sequence until the target is found."
+          complexity={{
+            best: "O(1)",
+            avg: "O(n)",
+            worst: "O(n)"
+          }}
+        />
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-8">
           {/* Main Visualizer */}
           <div className="space-y-6">
-            {/* Info Card */}
-            <div className="bg-card rounded-xl p-6 border border-border">
-              <div className="flex items-start gap-3 mb-4">
-                <Info className="w-5 h-5 text-accent mt-1" />
-                <div>
-                  <h3 className="font-semibold mb-2">Algorithm Info</h3>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <div className="text-muted-foreground">Best Case</div>
-                      <div className="font-mono">O(1)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Average</div>
-                      <div className="font-mono">O(n)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Worst Case</div>
-                      <div className="font-mono">O(n)</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {frame.labels && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="font-semibold text-accent">{frame.labels.title}</div>
-                  {frame.labels.detail && (
-                    <div className="text-sm text-muted-foreground mt-1">{frame.labels.detail}</div>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* Visualizer */}
             <div className="bg-card rounded-xl p-8 border border-border min-h-[500px]">
               <div className="flex items-end justify-center gap-1 h-96">
@@ -219,8 +199,11 @@ const LinearSearch = () => {
               currentStep={currentFrame}
               totalSteps={frames.length}
               showTarget={true}
-              targetValue={targetValue}
-              onTargetChange={setTargetValue}
+              targetValue={target === "" ? undefined : Number(target)}
+              onTargetChange={(value) => {
+                // Only update target, don't regenerate array
+                setTarget(value === 0 ? "" : value);
+              }}
               onRunSearch={runSearch}
             />
 

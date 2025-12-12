@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ControlsPanel } from "@/components/ControlsPanel";
 import { CodePanel } from "@/components/CodePanel";
+import { AlgorithmInfo } from "@/components/AlgorithmInfo";
 import { generateExponentialSearchSteps, Frame } from "@/lib/stepGenerators/exponentialSearch";
 
 const ExponentialSearch = () => {
   const navigate = useNavigate();
   const [arraySize, setArraySize] = useState(15);
   const [speed, setSpeed] = useState(600);
-  const [targetValue, setTargetValue] = useState(50);
+  const [target, setTarget] = useState<number | "">("");
   const [array, setArray] = useState<number[]>([]);
   const [frames, setFrames] = useState<Frame[]>([]);
   const [currentFrame, setCurrentFrame] = useState(0);
@@ -27,10 +28,10 @@ const ExponentialSearch = () => {
     setIsPlaying(false);
   };
 
-  // Run search on existing array
+  // Run search on existing array with current target
   const runSearch = () => {
-    if (array.length === 0) return;
-    const newFrames = generateExponentialSearchSteps([...array], targetValue);
+    if (array.length === 0 || target === "") return;
+    const newFrames = generateExponentialSearchSteps([...array], Number(target));
     setFrames(newFrames);
     setCurrentFrame(0);
     setIsPlaying(false);
@@ -75,6 +76,11 @@ const ExponentialSearch = () => {
   const handleReset = () => {
     setCurrentFrame(0);
     setIsPlaying(false);
+  };
+
+  const handleArraySizeChange = (size: number) => {
+    setArraySize(size);
+    generateArray(size);
   };
 
   const frame = frames[currentFrame] || { array: [], highlights: [] };
@@ -144,41 +150,20 @@ function binarySearch(arr, target, left, right) {
           <p className="text-muted-foreground">Search for unbounded or infinite arrays</p>
         </div>
 
+        {/* Algorithm Info - Full Width */}
+        <AlgorithmInfo
+          name="Exponential Search"
+          description="An efficient search algorithm for unbounded or infinite arrays. It works by finding a range where the target element may be present using exponential increments, then performs binary search within that range."
+          complexity={{
+            best: "O(1)",
+            avg: "O(log n)",
+            worst: "O(log n)"
+          }}
+        />
+
         <div className="grid lg:grid-cols-[1fr_400px] gap-8">
           {/* Main Visualizer */}
           <div className="space-y-6">
-            {/* Info Card */}
-            <div className="bg-card rounded-xl p-6 border border-border">
-              <div className="flex items-start gap-3 mb-4">
-                <Info className="w-5 h-5 text-accent mt-1" />
-                <div>
-                  <h3 className="font-semibold mb-2">Algorithm Info</h3>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <div className="text-muted-foreground">Best Case</div>
-                      <div className="font-mono">O(1)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Average</div>
-                      <div className="font-mono">O(log n)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Worst Case</div>
-                      <div className="font-mono">O(log n)</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {frame.labels && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="font-semibold text-accent">{frame.labels.title}</div>
-                  {frame.labels.detail && (
-                    <div className="text-sm text-muted-foreground mt-1">{frame.labels.detail}</div>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* Visualizer */}
             <div className="bg-card rounded-xl p-8 border border-border min-h-[500px]">
               <div className="flex items-end justify-center gap-1 h-96">
@@ -233,17 +218,17 @@ function binarySearch(arr, target, left, right) {
               onReset={handleReset}
               onRandomize={() => generateArray(arraySize)}
               arraySize={arraySize}
-              onArraySizeChange={(size) => {
-                setArraySize(size);
-                generateArray(size);
-              }}
+              onArraySizeChange={handleArraySizeChange}
               speed={speed}
               onSpeedChange={setSpeed}
               currentStep={currentFrame}
               totalSteps={frames.length}
               showTarget={true}
-              targetValue={targetValue}
-              onTargetChange={setTargetValue}
+              targetValue={target === "" ? undefined : Number(target)}
+              onTargetChange={(value) => {
+                // Only update target, don't regenerate array
+                setTarget(value === 0 ? "" : value);
+              }}
               onRunSearch={runSearch}
             />
 

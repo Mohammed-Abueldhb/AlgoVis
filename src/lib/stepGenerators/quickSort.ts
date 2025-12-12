@@ -152,14 +152,77 @@ export function generateQuickSortSteps(arr: number[]): Frame[] {
     const pivot = array[high];
     let i = low - 1;
 
+    // Frame: start partition
+    frames.push({
+      array: [...array],
+      highlights: [{ indices: [high], type: 'pivot' }],
+      labels: {
+        title: 'Partition',
+        detail: `Pivot: ${pivot} at index ${high}`
+      }
+    });
+
     for (let j = low; j < high; j++) {
+      // Frame: comparison
+      frames.push({
+        array: [...array],
+        highlights: [
+          { indices: [j], type: 'compare' },
+          { indices: [high], type: 'pivot' }
+        ],
+        labels: {
+          title: 'Compare',
+          detail: `Comparing ${array[j]} with pivot ${pivot}`
+        }
+      });
+
       if (array[j] < pivot) {
         i++;
-        [array[i], array[j]] = [array[j], array[i]];
+        if (i !== j) {
+          // Frame: swap
+          frames.push({
+            array: [...array],
+            highlights: [{ indices: [i, j], type: 'swap' }],
+            labels: {
+              title: 'Swap',
+              detail: `Swapping ${array[i]} and ${array[j]}`
+            }
+          });
+          [array[i], array[j]] = [array[j], array[i]];
+          // Frame: after swap
+          frames.push({
+            array: [...array],
+            highlights: [{ indices: [i], type: 'mark' }],
+            labels: {
+              title: 'After Swap',
+              detail: `${array[i]} moved to position ${i}`
+            }
+          });
+        }
       }
     }
 
-    [array[i + 1], array[high]] = [array[high], array[i + 1]];
+    // Frame: final swap with pivot
+    if (i + 1 !== high) {
+      frames.push({
+        array: [...array],
+        highlights: [{ indices: [i + 1, high], type: 'swap' }],
+        labels: {
+          title: 'Place Pivot',
+          detail: `Placing pivot ${pivot} at position ${i + 1}`
+        }
+      });
+      [array[i + 1], array[high]] = [array[high], array[i + 1]];
+      // Frame: after pivot placement
+      frames.push({
+        array: [...array],
+        highlights: [{ indices: [i + 1], type: 'pivot' }],
+        labels: {
+          title: 'Pivot Placed',
+          detail: `Pivot ${pivot} at final position ${i + 1}`
+        }
+      });
+    }
     return i + 1;
   }
 

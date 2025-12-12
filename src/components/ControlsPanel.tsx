@@ -133,8 +133,9 @@ export const ControlsPanel = ({
             value={targetValue ?? ""}
             onChange={(e) => {
               const val = e.target.value;
-              onTargetChange(val === "" ? 0 : parseInt(val));
+              onTargetChange(val === "" ? 0 : Number(val));
             }}
+            placeholder="Enter target value"
             className="bg-input border-border"
           />
         </div>

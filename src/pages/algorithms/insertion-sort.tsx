@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ControlsPanel } from "@/components/ControlsPanel";
 import { CodePanel } from "@/components/CodePanel";
 import { generateInsertionSortSteps, Frame } from "@/lib/stepGenerators/insertionSort";
+import { AlgorithmInfo } from "@/components/AlgorithmInfo";
 
 const InsertionSort = () => {
   const navigate = useNavigate();
@@ -102,7 +103,7 @@ const InsertionSort = () => {
     <div className="min-h-screen p-4 md:p-8">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <Button
             onClick={() => navigate("/algorithms")}
             variant="ghost"
@@ -112,44 +113,23 @@ const InsertionSort = () => {
             Back to Algorithms
           </Button>
           <h1 className="text-4xl font-bold mb-2">Insertion Sort Visualizer</h1>
-          <p className="text-muted-foreground">Build sorted array one element at a time</p>
+          <p className="text-muted-foreground">Builds a sorted array one element at a time.</p>
         </div>
+
+        {/* Algorithm Info - Full Width */}
+        <AlgorithmInfo
+          name="Insertion Sort"
+          description="Builds a sorted array one element at a time. Efficient for small or nearly sorted arrays."
+          complexity={{
+            best: "O(n)",
+            avg: "O(n²)",
+            worst: "O(n²)"
+          }}
+        />
 
         <div className="grid lg:grid-cols-[1fr_400px] gap-8">
           {/* Main Visualizer */}
           <div className="space-y-6">
-            {/* Info Card */}
-            <div className="bg-card rounded-xl p-6 border border-border">
-              <div className="flex items-start gap-3 mb-4">
-                <Info className="w-5 h-5 text-accent mt-1" />
-                <div>
-                  <h3 className="font-semibold mb-2">Algorithm Info</h3>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <div className="text-muted-foreground">Best Case</div>
-                      <div className="font-mono">O(n)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Average</div>
-                      <div className="font-mono">O(n²)</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground">Worst Case</div>
-                      <div className="font-mono">O(n²)</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {frame.labels && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="font-semibold text-accent">{frame.labels.title}</div>
-                  {frame.labels.detail && (
-                    <div className="text-sm text-muted-foreground mt-1">{frame.labels.detail}</div>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* Visualizer */}
             <div className="bg-card rounded-xl p-8 border border-border min-h-[500px]">
               <div className="flex items-end justify-center gap-1 h-96">

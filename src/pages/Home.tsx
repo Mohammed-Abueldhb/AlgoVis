@@ -42,12 +42,12 @@ const Home = () => {
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-3xl mx-auto">
             <div className="bg-card rounded-xl p-6 border border-border hover-lift">
-              <div className="text-4xl font-bold text-gradient-primary mb-2">13+</div>
+              <div className="text-4xl font-bold text-gradient-primary mb-2">15</div>
               <div className="text-muted-foreground">Algorithms</div>
             </div>
             
             <div className="bg-card rounded-xl p-6 border border-border hover-lift">
-              <div className="text-4xl font-bold text-gradient-accent mb-2">4</div>
+              <div className="text-4xl font-bold text-gradient-accent mb-2">5</div>
               <div className="text-muted-foreground">Categories</div>
             </div>
             

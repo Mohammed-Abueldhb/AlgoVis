@@ -2,11 +2,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Navigation } from "./components/Navigation";
 import Home from "./pages/Home";
 import Algorithms from "./pages/Algorithms";
 import Compare from "./pages/Compare";
+import CompareRun from "./pages/CompareRun";
+import FloydVsDijkstraComparePage from "./pages/FloydVsDijkstraComparePage";
 import About from "./pages/About";
 
 import QuickSort from "./pages/algorithms/quick-sort";
@@ -22,7 +24,10 @@ import FibonacciSearch from "./pages/algorithms/fibonacci-search";
 import Prim from "./pages/algorithms/prim";
 import Kruskal from "./pages/algorithms/kruskal";
 import Dijkstra from "./pages/algorithms/dijkstra";
+import FloydWarshall from "./pages/FloydWarshallPage";
+import Warshall from "./pages/WarshallPage";
 import NotFound from "./pages/NotFound";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -49,10 +54,28 @@ const App = () => (
           <Route path="/algorithms/prim" element={<Prim />} />
           <Route path="/algorithms/kruskal" element={<Kruskal />} />
           <Route path="/algorithms/dijkstra" element={<Dijkstra />} />
+          <Route 
+            path="/algorithms/floyd-warshall" 
+            element={
+              <ErrorBoundary>
+                <FloydWarshall />
+              </ErrorBoundary>
+            } 
+          />
+          <Route 
+            path="/algorithms/warshall" 
+            element={
+              <ErrorBoundary>
+                <Warshall />
+              </ErrorBoundary>
+            } 
+          />
           <Route path="/compare" element={<Compare />} />
+          <Route path="/compare/run" element={<CompareRun />} />
+          <Route path="/compare/floyd-vs-dijkstra" element={<FloydVsDijkstraComparePage />} />
           <Route path="/about" element={<About />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<Navigate to="/algorithms" replace />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
