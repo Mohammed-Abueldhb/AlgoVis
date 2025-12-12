@@ -1,6 +1,22 @@
-export type FloydWarshallFrame =
-  | { type: "matrixSnapshot"; dist: number[][]; k: number; i?: number; j?: number }
-  | { type: "info"; text: string };
+export interface FloydWarshallFrame {
+  type: "initial" | "check" | "update" | "final";
+  k: number;
+  i: number;
+  j: number;
+  matrix: number[][];
+  highlight: {
+    kCell?: [number, number];
+    currentCell?: [number, number];
+    viaCells?: [[number, number], [number, number]];
+    updated?: boolean;
+  };
+  metadata: {
+    kIndex: number;
+    iIndex: number;
+    jIndex: number;
+    lastUpdate?: { from: number; to: number };
+  };
+}
 
 export interface FloydWarshallEdge {
   u: number;
@@ -29,48 +45,92 @@ export function generateFloydWarshallFrames(
 
   const frames: FloydWarshallFrame[] = [];
   
+  // FRAME 0: Initial matrix (CRITICAL - must be first)
   frames.push({
-    type: "info",
-    text: `Starting Floyd-Warshall algorithm for ${n} vertices. Initial distance matrix: direct edges only.`,
-  });
-  
-  // Initial snapshot (k = -1)
-  frames.push({
-    type: "matrixSnapshot",
-    dist: dist.map((row) => [...row]),
+    type: "initial",
     k: -1,
+    i: -1,
+    j: -1,
+    matrix: dist.map((row) => row.map((val) => val)), // Deep copy
+    highlight: {},
+    metadata: {
+      kIndex: -1,
+      iIndex: -1,
+      jIndex: -1,
+    },
   });
 
   // Main algorithm: try all intermediate vertices
   for (let k = 0; k < n; k++) {
-    let lastUpdated: { i: number; j: number } | null = null;
-    
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
+        const prevValue = dist[i][j];
+        
+        // CHECK FRAME: Show what we're checking
+        frames.push({
+          type: "check",
+          k,
+          i,
+          j,
+          matrix: dist.map((row) => row.map((val) => val)), // Current state
+          highlight: {
+            kCell: [k, k],
+            currentCell: [i, j],
+            viaCells: [[i, k], [k, j]],
+            updated: false,
+          },
+          metadata: {
+            kIndex: k,
+            iIndex: i,
+            jIndex: j,
+          },
+        });
+
+        // Check if path via k is shorter
         if (dist[i][k] !== INF && dist[k][j] !== INF) {
-          const throughK = dist[i][k] + dist[k][j];
-          if (throughK < dist[i][j]) {
-            dist[i][j] = throughK;
-            lastUpdated = { i, j };
+          const viaK = dist[i][k] + dist[k][j];
+          if (viaK < dist[i][j]) {
+            // UPDATE FRAME: Show the update
+            dist[i][j] = viaK;
+            frames.push({
+              type: "update",
+              k,
+              i,
+              j,
+              matrix: dist.map((row) => row.map((val) => val)), // Updated state
+              highlight: {
+                kCell: [k, k],
+                currentCell: [i, j],
+                viaCells: [[i, k], [k, j]],
+                updated: true,
+              },
+              metadata: {
+                kIndex: k,
+                iIndex: i,
+                jIndex: j,
+                lastUpdate: { from: prevValue, to: viaK },
+              },
+            });
           }
         }
       }
     }
-    
-    // Emit snapshot after completing all i,j loops for this k
-    frames.push({
-      type: "matrixSnapshot",
-      dist: dist.map((row) => [...row]),
-      k,
-      i: lastUpdated?.i,
-      j: lastUpdated?.j,
-    });
   }
 
+  // FINAL FRAME: Always show final matrix
   frames.push({
-    type: "info",
-    text: `Algorithm complete! Final matrix contains shortest paths between all pairs of vertices.`,
+    type: "final",
+    k: n - 1,
+    i: n - 1,
+    j: n - 1,
+    matrix: dist.map((row) => row.map((val) => val)), // Deep copy
+    highlight: {},
+    metadata: {
+      kIndex: n - 1,
+      iIndex: n - 1,
+      jIndex: n - 1,
+    },
   });
-
+  
   return frames;
 }

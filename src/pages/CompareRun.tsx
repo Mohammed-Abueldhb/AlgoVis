@@ -1,347 +1,362 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Play, Pause, Settings, RotateCcw, SkipForward, SkipBack, Trophy } from "lucide-react";
+import { ArrowLeft, Play, Pause, Settings, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { MiniVisualizer } from "@/components/compare/MiniVisualizer";
-import { CompareRun, CompareResult, computeRanking } from "@/lib/compare/compareRunStore";
-import { 
-  runSortingCompare, 
-  runSearchingCompare, 
-  runGreedyCompare, 
-  runDPCompare 
-} from "@/lib/compare/compareRunner";
-import { generateRandomGraph } from "@/lib/graphGenerator";
+import { GraphMiniView } from "@/components/compare/GraphMiniView";
+import { Trophy } from "lucide-react";
 
-// Import all generators
-import { generateQuickSortSteps } from "@/lib/stepGenerators/quickSort";
-import { generateMergeSortSteps } from "@/lib/stepGenerators/mergeSort";
-import { generateInsertionSortSteps } from "@/lib/stepGenerators/insertionSort";
-import { generateSelectionSortSteps } from "@/lib/stepGenerators/selectionSort";
-import { generateHeapSortSteps } from "@/lib/stepGenerators/heapSort";
-import { generateBinarySearchSteps } from "@/lib/stepGenerators/binarySearch";
-import { generateLinearSearchSteps } from "@/lib/stepGenerators/linearSearch";
-import { generateInterpolationSearchSteps } from "@/lib/stepGenerators/interpolationSearch";
-import { generateExponentialSearchSteps } from "@/lib/stepGenerators/exponentialSearch";
-import { generateFibonacciSearchSteps } from "@/lib/stepGenerators/fibonacciSearch";
-import { generatePrimSteps } from "@/lib/stepGenerators/prim";
-import { generateKruskalSteps } from "@/lib/stepGenerators/kruskal";
-import { generateDijkstraSteps } from "@/lib/stepGenerators/dijkstra";
-import { generateFloydWarshallFrames } from "@/lib/stepGenerators/floydWarshall";
-import { generateWarshallNumericFrames } from "@/lib/stepGenerators/warshallNumeric";
+// Shared Graph Component for Dynamic Programming
+const SharedGraphView = ({ graph }: { graph: { numVertices: number; edges: any[] } }) => {
+  const numVertices = graph.numVertices;
+  const edges = graph.edges || [];
+  
+  // Calculate node positions (same as GraphMiniView)
+  const size = 300;
+  const centerX = size / 2;
+  const centerY = size / 2;
+  const radius = Math.min(size * 0.35, 100);
+  
+  const nodes = Array.from({ length: numVertices }, (_, i) => {
+    const angle = (i * 2 * Math.PI) / numVertices - Math.PI / 2;
+    return {
+      id: i,
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle)
+    };
+  });
 
-interface ResultWithPlayback extends CompareResult {
-  id: number;
-  currentFrameIndex: number;
-  playing: boolean;
+  return (
+    <div className="w-full bg-background/50 rounded-lg p-4 border border-border/30">
+      <svg width="100%" height="100%" viewBox={`0 0 ${size} ${size}`} className="w-full h-full min-h-[300px]">
+        {/* Draw edges */}
+        {edges.map((edge, i) => {
+          const pos1 = nodes[edge.u];
+          const pos2 = nodes[edge.v];
+          
+          if (!pos1 || !pos2) return null;
+          
+          // Calculate midpoint for weight label
+          const labelPos = computeLabelPos(pos1.x, pos1.y, pos2.x, pos2.y, {
+            width: size,
+            height: size,
+            padding: 12,
+          });
+          const labelText = formatWeight(edge.weight);
+          const fontSize = labelText.length > 4 ? 10 : 11;
+          const textWidth = labelText.length * 6;
+          const textHeight = fontSize + 4;
+          const bgPadding = 4;
+          
+          return (
+            <g key={`edge-${i}`} className="edge-group" style={{ pointerEvents: "none" }}>
+              <line
+                x1={pos1.x}
+                y1={pos1.y}
+                x2={pos2.x}
+                y2={pos2.y}
+                stroke="#6FA8FF"
+                strokeWidth="1.5"
+                opacity="0.5"
+                className="transition-all duration-200"
+              />
+              {/* Background rectangle for readability */}
+              <rect
+                x={labelPos.x - textWidth / 2 - bgPadding}
+                y={labelPos.y - textHeight / 2 - bgPadding}
+                width={textWidth + bgPadding * 2}
+                height={textHeight + bgPadding * 2}
+                rx={3}
+                fill="rgba(10, 20, 30, 0.45)"
+                stroke="none"
+                style={{ pointerEvents: "none" }}
+              />
+              {/* Edge weight label */}
+              <text
+                x={labelPos.x}
+                y={labelPos.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={fontSize}
+                fill="#E6F3FF"
+                fontWeight="bold"
+                className="pointer-events-none"
+                style={{ 
+                  textShadow: "0 0 2px rgba(0, 0, 0, 0.8)",
+                  userSelect: "none"
+                }}
+              >
+                {labelText}
+              </text>
+            </g>
+          );
+        })}
+        
+        {/* Draw vertices */}
+        {nodes.map((pos, i) => (
+          <g key={`vertex-${i}`}>
+            <circle
+              cx={pos.x}
+              cy={pos.y}
+              r="14"
+              fill="#3b82f6"
+              stroke="#1e40af"
+              strokeWidth="2"
+              className="transition-all duration-200"
+            />
+            {/* Node ID */}
+            <text
+              x={pos.x}
+              y={pos.y}
+              textAnchor="middle"
+              dy="4"
+              fontSize="14px"
+              fill="#ffffff"
+              fontWeight="bold"
+              className="pointer-events-none"
+              style={{ textShadow: "0 0 2px rgba(0, 0, 0, 0.5)" }}
+            >
+              {pos.id}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+};
+
+// Helper functions (same as GraphMiniView)
+function computeLabelPos(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  viewport: { width: number; height: number; padding?: number }
+): { x: number; y: number } {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  
+  let nx = -dy / len;
+  let ny = dx / len;
+  
+  let mx = (x1 + x2) / 2;
+  let my = (y1 + y2) / 2;
+  
+  let offset = Math.max(12, Math.min(24, Math.round(len * 0.08)));
+  
+  if (Math.abs(dy / len) < 0.3) {
+    offset *= 1.15;
+  }
+  if (Math.abs(dx / len) < 0.1) {
+    offset *= 0.9;
+  }
+  
+  let lx = mx + nx * offset;
+  let ly = my + ny * offset;
+  
+  const pad = viewport.padding ?? 12;
+  const maxX = viewport.width - pad;
+  const maxY = viewport.height - pad;
+  
+  lx = Math.max(pad, Math.min(maxX, lx));
+  ly = Math.max(pad, Math.min(maxY, ly));
+  
+  if (lx === pad || lx === maxX || ly === pad || ly === maxY) {
+    nx = -nx;
+    ny = -ny;
+    lx = mx + nx * offset;
+    ly = my + ny * offset;
+    lx = Math.max(pad, Math.min(maxX, lx));
+    ly = Math.max(pad, Math.min(maxY, ly));
+  }
+  
+  return { x: lx, y: ly };
 }
 
-const CompareRunPage = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  // SECTION A: Load run input correctly
-  const incomingRun = location.state?.runData ?? location.state?.compareRun ?? (() => {
-    try {
-      const stored = localStorage.getItem("compareRun");
-      if (stored) return JSON.parse(stored);
-    } catch (e) {
-      console.warn("Failed to parse compareRun from localStorage", e);
-    }
-    return null;
-  })() as CompareRun | null;
-
-  if (!incomingRun) {
-    navigate("/compare", { replace: true });
-    return null;
+function formatWeight(weight: number): string {
+  if (weight === Infinity || weight === Number.POSITIVE_INFINITY || !Number.isFinite(weight)) {
+    return "∞";
   }
+  if (weight >= 10000) {
+    return (weight / 1000).toFixed(1) + "k";
+  }
+  if (weight >= 1000) {
+    return (weight / 1000).toFixed(1) + "k";
+  }
+  return String(Math.round(weight * 10) / 10);
+}
 
-  const [run, setRun] = useState<CompareRun>(incomingRun);
-  const [results, setResults] = useState<ResultWithPlayback[]>([]);
-  const [globalPlaying, setGlobalPlaying] = useState(false);
-  const [globalSpeed, setGlobalSpeed] = useState(run.settings.globalSpeedMs || 300);
-  const [syncPlaybackEnabled, setSyncPlaybackEnabled] = useState(run.settings.sync !== false);
+interface CompareResult {
+  id: string;
+  name: string;
+  time: number;
+  winner: boolean;
+  finalFrame: any;
+  frames: any[];
+  localSpeed?: number;
+  currentFrameIndex?: number;
+  playing?: boolean;
+  finishOrder?: number | null;
+}
+
+interface CompareRunData {
+  category: "sorting" | "searching" | "greedy" | "dynamic";
+  results: CompareResult[];
+  input?: {
+    type: "array" | "graph";
+    array?: number[];
+    graph?: any;
+    target?: number;
+  };
+}
+
+const CompareRun = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const runData = location.state as CompareRunData | null;
+
+  const [results, setResults] = useState<CompareResult[]>([]);
+  const [globalSpeed, setGlobalSpeed] = useState(300);
+  const [isSynced, setIsSynced] = useState(true);
+  const [globalPlayState, setGlobalPlayState] = useState(false);
   const [showAnimatedPreview, setShowAnimatedPreview] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'generationTimeMs' | 'comparisons' | 'swaps' | 'steps'>(run.settings.metric || 'generationTimeMs');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const syncIntervalRef = useRef<number>();
+  const globalFinishCounterRef = useRef<number>(1);
 
-  // Store run in localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem("compareRun", JSON.stringify(run));
-    } catch (e) {
-      console.warn("Failed to save compareRun to localStorage", e);
-    }
-  }, [run]);
-
-  // SECTION F: Clear old results before generating new ones
-  useEffect(() => {
-    localStorage.removeItem("compareResults");
-  }, []);
-
-  // SECTION B: Generate results immediately after mount
-  useEffect(() => {
-    async function generate() {
-      setIsGenerating(true);
-      
-      // SECTION F: Clear old results
-      localStorage.removeItem("compareResults");
-
-      const generated: CompareResult[] = [];
-
-      // Get generator function
-      const getGenerator = (id: string): ((...args: any[]) => any[]) | null => {
-        const generators: Record<string, any> = {
-          'quick': generateQuickSortSteps,
-          'merge': generateMergeSortSteps,
-          'insertion': generateInsertionSortSteps,
-          'selection': generateSelectionSortSteps,
-          'heap': generateHeapSortSteps,
-          'binary': generateBinarySearchSteps,
-          'linear': generateLinearSearchSteps,
-          'interpolation': generateInterpolationSearchSteps,
-          'exponential': generateExponentialSearchSteps,
-          'fibonacci': generateFibonacciSearchSteps,
-          'prim': generatePrimSteps,
-          'kruskal': generateKruskalSteps,
-          'dijkstra': generateDijkstraSteps,
-          'floyd': generateFloydWarshallFrames,
-          'warshall': generateWarshallNumericFrames,
-        };
-        return generators[id] || null;
-      };
-
-      for (const algo of run.algorithms) {
-        try {
-          let result: CompareResult;
-
-          if (algo.type === 'sorting') {
-            // Sorting gets shuffled/unsorted array
-            const input = run.input.array || [];
-            const generator = getGenerator(algo.id);
-            if (generator) {
-              result = runSortingCompare(algo.id, algo.name, generator, input);
-            } else {
-              throw new Error(`Generator not found for ${algo.id}`);
-            }
-          } else if (algo.type === 'searching') {
-            // Searching gets sorted array
-            const input = run.input.sortedArray || run.input.array || [];
-            const target = run.input.target || input[Math.floor(input.length / 2)];
-            const generator = getGenerator(algo.id);
-            if (generator) {
-              result = runSearchingCompare(algo.id, algo.name, generator, input, target);
-            } else {
-              throw new Error(`Generator not found for ${algo.id}`);
-            }
-          } else if (algo.type === 'greedy') {
-            // SECTION A: Use shared graph, deep clone for each algorithm
-            const graph = run.input.graph as any;
-            if (!graph || !graph.numVertices) {
-              throw new Error('Graph not found in compare run input');
-            }
-            // Deep clone the shared graph to prevent mutations
-            const clonedGraph = JSON.parse(JSON.stringify(graph));
-            const generator = getGenerator(algo.id);
-            if (generator) {
-              result = runGreedyCompare(
-                algo.id, 
-                algo.name, 
-                generator, 
-                clonedGraph,
-                algo.id === 'dijkstra' ? 0 : undefined
-              );
-            } else {
-              throw new Error(`Generator not found for ${algo.id}`);
-            }
-          } else if (algo.type === 'dynamic') {
-            const graph = run.input.graph as any;
-            if (!graph || !graph.numVertices) {
-              throw new Error('Graph not found in compare run input');
-            }
-            const directedEdges = graph.edges.flatMap((e: any) => [
-              { u: e.u, v: e.v, weight: e.weight },
-              { u: e.v, v: e.u, weight: e.weight },
-            ]);
-            const generator = getGenerator(algo.id);
-            if (generator) {
-              result = runDPCompare(algo.id, algo.name, generator, graph.numVertices, directedEdges);
-            } else {
-              throw new Error(`Generator not found for ${algo.id}`);
-            }
-          } else {
-            throw new Error(`Unknown algorithm type: ${algo.type}`);
-          }
-
-          // SECTION G: Ensure at least one frame
-          if (!result.frames || result.frames.length === 0) {
-            result.frames = [result.finalState || { array: run.input.array || [] }];
-          }
-
-          generated.push(result);
-        } catch (error: any) {
-          generated.push({
-            algorithmId: algo.id,
-            algorithmName: algo.name,
-            algorithmType: algo.type,
-            status: 'error',
-            frames: [{ error: error.message || 'Unknown error' }],
-            finalState: { error: error.message || 'Unknown error' },
-            generationTimeMs: 0,
-            stats: {},
-            error: error.message || 'Unknown error'
-          });
-        }
-      }
-
-      // Map results with playback state
-      const resultsWithPlayback: ResultWithPlayback[] = generated.map((g, idx) => ({
-        ...g,
-        id: idx,
-        currentFrameIndex: 0,
-        playing: false,
-      }));
-
-      setResults(resultsWithPlayback);
-      setIsGenerating(false);
-
-      // Store results in localStorage
-      try {
-        localStorage.setItem("compareResults", JSON.stringify(generated));
-      } catch (e) {
-        console.warn("Failed to save results to localStorage", e);
-      }
-    }
-
-    generate();
-  }, [run]);
-
-  // SECTION C: Fixed Playback Engine
-  useEffect(() => {
-    if (!globalPlaying || !syncPlaybackEnabled) {
+    if (!runData || !runData.results || runData.results.length === 0) {
+      // If no data, redirect back to compare page
+      navigate("/compare", { replace: true });
       return;
     }
-
-    const interval = setInterval(() => {
-      setResults(prev =>
-        prev.map(r => {
-          if (!r.playing) return r;
-
-          const maxIndex = (r.frames?.length ?? 1) - 1;
-          const next = Math.min((r.currentFrameIndex || 0) + 1, maxIndex);
-
-          if (next >= maxIndex) {
-            return { ...r, currentFrameIndex: maxIndex, playing: false };
-          }
-
-          return { ...r, currentFrameIndex: next };
-        })
-      );
-    }, globalSpeed);
-
-    return () => clearInterval(interval);
-  }, [globalPlaying, globalSpeed, syncPlaybackEnabled]);
-
-  // Play All
-  function handlePlayAll() {
-    setResults(prev =>
-      prev.map(r => ({ ...r, playing: true, currentFrameIndex: 0 }))
-    );
-    setGlobalPlaying(true);
-  }
-
-  // Pause All
-  function handlePauseAll() {
-    setGlobalPlaying(false);
-    setResults(prev =>
-      prev.map(r => ({ ...r, playing: false }))
-    );
-  }
-
-  // Handle step forward/backward
-  const handleStep = (resultId: number, direction: 'next' | 'prev') => {
-    setResults(prev => prev.map(r => {
-      if (r.id !== resultId) return r;
-      const current = r.currentFrameIndex || 0;
-      const maxIndex = (r.frames?.length ?? 1) - 1;
-      const next = direction === 'next' 
-        ? Math.min(current + 1, maxIndex)
-        : Math.max(current - 1, 0);
-      return { ...r, currentFrameIndex: next, playing: false };
+    // Initialize results with currentFrameIndex, playing state, and finishOrder
+    const initializedResults = runData.results.map((r, idx) => ({
+      ...r,
+      id: r.id || `result-${idx}`,
+      currentFrameIndex: 0,
+      playing: false,
+      frames: r.frames || [],
+      finishOrder: null, // No ranking until algorithm finishes
+      winner: false, // Will be set based on finishOrder === 1
     }));
-  };
+    setResults(initializedResults);
+    // Reset finish counter
+    globalFinishCounterRef.current = 1;
+    // Initialize local speeds from results
+    setGlobalSpeed(runData.results[0]?.localSpeed || 300);
+  }, [runData, navigate]);
 
-  // Handle local speed change
-  const handleLocalSpeedChange = (resultId: number, speed: number) => {
+  // Synced playback interval
+  useEffect(() => {
+    if (isSynced && globalPlayState && showAnimatedPreview) {
+      syncIntervalRef.current = window.setInterval(() => {
+        setResults(prev => {
+          const updated = prev.map(r => {
+            const max = Math.max((r.frames?.length || 1) - 1, 0);
+            const currentIdx = r.currentFrameIndex || 0;
+            const next = Math.min(currentIdx + 1, max);
+            const isFinished = next >= max;
+            
+            // Assign finishOrder when algorithm reaches last frame
+            let finishOrder = r.finishOrder;
+            if (isFinished && finishOrder === null) {
+              finishOrder = globalFinishCounterRef.current++;
+            }
+            
+            return {
+              ...r,
+              currentFrameIndex: next,
+              playing: !isFinished,
+              finishOrder,
+              winner: finishOrder === 1, // Winner is the first to finish
+            };
+          });
+          
+          // Check if all algorithms finished
+          const allFinished = updated.every(r => {
+            const max = Math.max((r.frames?.length || 1) - 1, 0);
+            return (r.currentFrameIndex || 0) >= max;
+          });
+          
+          if (allFinished && syncIntervalRef.current) {
+            clearInterval(syncIntervalRef.current);
+            syncIntervalRef.current = undefined;
+            setGlobalPlayState(false);
+          }
+          
+          return updated;
+        });
+      }, globalSpeed);
+    } else {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = undefined;
+      }
+    }
+
+    return () => {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+      }
+    };
+  }, [isSynced, globalPlayState, showAnimatedPreview, globalSpeed]);
+
+  const handleLocalSpeedChange = (resultId: string, speed: number) => {
     setResults(prev => prev.map(r => 
       r.id === resultId ? { ...r, localSpeed: speed } : r
     ));
   };
 
-  // SECTION E: Compute ranking from current results only
-  const ranking = [...results]
-    .filter(r => r.status === 'finished' && !r.error)
-    .sort((a, b) => {
-      let aValue: number;
-      let bValue: number;
-
-      switch (selectedMetric) {
-        case 'generationTimeMs':
-          aValue = a.generationTimeMs;
-          bValue = b.generationTimeMs;
-          break;
-        case 'comparisons':
-          aValue = a.stats.comparisons || 0;
-          bValue = b.stats.comparisons || 0;
-          break;
-        case 'swaps':
-          aValue = a.stats.swaps || 0;
-          bValue = b.stats.swaps || 0;
-          break;
-        case 'steps':
-          aValue = a.stats.steps || a.frames.length;
-          bValue = b.stats.steps || b.frames.length;
-          break;
-        default:
-          aValue = a.generationTimeMs;
-          bValue = b.generationTimeMs;
+  const handleFrameChange = (resultId: string, frameIndex: number) => {
+    setResults(prev => prev.map(r => {
+      if (r.id !== resultId) return r;
+      
+      const max = Math.max((r.frames?.length || 1) - 1, 0);
+      const isFinished = frameIndex >= max;
+      
+      // Assign finishOrder when algorithm reaches last frame
+      let finishOrder = r.finishOrder;
+      if (isFinished && finishOrder === null) {
+        finishOrder = globalFinishCounterRef.current++;
       }
-
-      return aValue - bValue;
-    })
-    .map((r, idx) => ({
-      place: idx + 1,
-      algorithmId: r.algorithmId,
-      algorithmName: r.algorithmName,
-      metricValue: selectedMetric === 'generationTimeMs' ? r.generationTimeMs :
-                   selectedMetric === 'comparisons' ? (r.stats.comparisons || 0) :
-                   selectedMetric === 'swaps' ? (r.stats.swaps || 0) :
-                   (r.stats.steps || r.frames.length),
-      details: r
+      
+      return {
+        ...r,
+        currentFrameIndex: frameIndex,
+        finishOrder,
+        winner: finishOrder === 1,
+      };
     }));
-
-  // Get place for a result
-  const getPlace = (resultId: string) => {
-    const rank = ranking.find(r => r.algorithmId === resultId);
-    return rank?.place;
   };
 
-  // Get current frame
-  const getCurrentFrame = (result: ResultWithPlayback) => {
-    if (!showAnimatedPreview || !result.frames || result.frames.length === 0) {
-      return result.finalState;
+  const handlePlayStateChange = (resultId: string, playing: boolean) => {
+    if (isSynced) {
+      setGlobalPlayState(playing);
+    } else {
+      setResults(prev => prev.map(r => 
+        r.id === resultId ? { ...r, playing } : r
+      ));
     }
-    const index = result.currentFrameIndex || 0;
-    return result.frames[index] || result.frames[result.frames.length - 1] || result.finalState;
   };
 
-  if (isGenerating) {
+  const handleRunAgain = () => {
+    navigate("/compare");
+  };
+
+  const algorithmType = runData?.category === "dynamic" ? "dp" : runData?.category || "sorting";
+
+  if (!runData || results.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary mb-4 mx-auto"></div>
-          <p className="text-xl text-muted-foreground">Generating results...</p>
+          <p className="text-muted-foreground mb-4">No comparison data found.</p>
+          <Button onClick={() => navigate("/compare")}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Compare
+          </Button>
         </div>
       </div>
     );
@@ -350,7 +365,7 @@ const CompareRunPage = () => {
   return (
     <div className="min-h-screen p-4 md:p-6 lg:p-10">
       <div className="container mx-auto max-w-[1800px]">
-        {/* Header */}
+        {/* Header with Back Button */}
         <div className="mb-6">
           <Button
             onClick={() => navigate("/compare")}
@@ -367,16 +382,11 @@ const CompareRunPage = () => {
                 <span className="text-foreground">Results</span>
               </h1>
               <p className="text-muted-foreground">
-                Step-by-step visualization of {run.algorithms.length} algorithm{run.algorithms.length > 1 ? "s" : ""}
-                {run.seed && ` • Seed: ${run.seed}`}
+                Step-by-step visualization of {results.length} algorithm{results.length > 1 ? "s" : ""}
               </p>
             </div>
             <Button
-              onClick={() => {
-                localStorage.removeItem("compareRun");
-                localStorage.removeItem("compareResults");
-                navigate("/compare");
-              }}
+              onClick={handleRunAgain}
               variant="outline"
               className="flex items-center gap-2"
             >
@@ -409,14 +419,8 @@ const CompareRunPage = () => {
                 <input
                   type="checkbox"
                   id="sync-playback"
-                  checked={syncPlaybackEnabled}
-                  onChange={(e) => {
-                    setSyncPlaybackEnabled(e.target.checked);
-                    if (!e.target.checked) {
-                      setGlobalPlaying(false);
-                      setResults(prev => prev.map(r => ({ ...r, playing: false })));
-                    }
-                  }}
+                  checked={isSynced}
+                  onChange={(e) => setIsSynced(e.target.checked)}
                   className="w-4 h-4"
                 />
                 <Label htmlFor="sync-playback" className="text-sm cursor-pointer">
@@ -433,7 +437,7 @@ const CompareRunPage = () => {
                     value={[globalSpeed]}
                     onValueChange={([value]) => setGlobalSpeed(value)}
                     min={10}
-                    max={2000}
+                    max={1000}
                     step={10}
                     className="flex-1"
                   />
@@ -444,13 +448,33 @@ const CompareRunPage = () => {
               )}
 
               {/* Global Play/Pause */}
-              {showAnimatedPreview && syncPlaybackEnabled && (
+              {showAnimatedPreview && isSynced && (
                 <Button
-                  onClick={globalPlaying ? handlePauseAll : handlePlayAll}
+                  onClick={() => {
+                    if (!globalPlayState) {
+                      // Reset all to frame 0 if at the end, and reset finishOrder
+                      globalFinishCounterRef.current = 1;
+                      setResults(prev => prev.map(r => {
+                        const max = Math.max((r.frames?.length || 1) - 1, 0);
+                        const currentIdx = r.currentFrameIndex || 0;
+                        if (currentIdx >= max) {
+                          return { 
+                            ...r, 
+                            currentFrameIndex: 0, 
+                            playing: true,
+                            finishOrder: null,
+                            winner: false,
+                          };
+                        }
+                        return { ...r, playing: true };
+                      }));
+                    }
+                    setGlobalPlayState(!globalPlayState);
+                  }}
                   size="sm"
                   variant="outline"
                 >
-                  {globalPlaying ? (
+                  {globalPlayState ? (
                     <>
                       <Pause className="w-4 h-4 mr-2" />
                       Pause All
@@ -463,272 +487,124 @@ const CompareRunPage = () => {
                   )}
                 </Button>
               )}
-
-              {/* Metric Selector */}
-              {ranking.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm">Metric:</Label>
-                  <select
-                    value={selectedMetric}
-                    onChange={(e) => setSelectedMetric(e.target.value as any)}
-                    className="px-3 py-1 rounded-md bg-background border border-border text-sm"
-                  >
-                    <option value="generationTimeMs">Time (ms)</option>
-                    <option value="comparisons">Comparisons</option>
-                    <option value="swaps">Swaps</option>
-                    <option value="steps">Steps</option>
-                  </select>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* SECTION B: Results Grid - Always Renders */}
+        {/* Results Grid */}
         <div 
-          className="grid gap-6 w-full mb-6"
-          style={{
-            gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
-            gap: "20px"
-          }}
+          className={`gap-6 w-full ${
+            runData?.category === "dynamic" && results.length === 2
+              ? "flex flex-row items-stretch"
+              : "grid"
+          }`}
+          style={
+            runData?.category === "dynamic" && results.length === 2
+              ? {}
+              : {
+                  gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))"
+                }
+          }
         >
-          {results.map((result) => {
-            const place = getPlace(result.algorithmId);
-            const currentFrame = getCurrentFrame(result);
-            const algorithmType = result.algorithmType === "dynamic" ? "dp" : result.algorithmType;
-
+          {results.map((result, resultIndex) => {
+            // For DP with 2 results, insert graph between first and second
+            const shouldShowGraphBefore = 
+              runData?.category === "dynamic" && 
+              results.length === 2 && 
+              resultIndex === 1 && 
+              runData.input?.graph;
+            
             return (
-              <div
-                key={result.id}
-                className={`p-6 rounded-xl border-2 transition-all flex flex-col ${
-                  place === 1
-                    ? 'border-success bg-success/10'
-                    : place === 2
-                    ? 'border-accent/50 bg-accent/5'
-                    : place === 3
-                    ? 'border-warning/50 bg-warning/5'
-                    : 'border-border bg-card'
-                }`}
-              >
-                {/* Algorithm Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    {place && (
-                      <div className={`text-2xl font-bold ${
-                        place === 1 ? 'text-success' : 
-                        place === 2 ? 'text-accent' : 
-                        place === 3 ? 'text-warning' : 
-                        'text-muted-foreground'
-                      }`}>
-                        #{place}
+              <React.Fragment key={`result-wrapper-${result.id}`}>
+                {shouldShowGraphBefore && (
+                  <div key="shared-graph" className="flex-1 flex items-center justify-center px-6">
+                    <div className="bg-card rounded-xl border-2 border-border p-6 w-full max-w-md">
+                      <div className="text-sm font-semibold mb-4 text-center text-muted-foreground">
+                        Shared Graph
                       </div>
-                    )}
-                    <div>
-                      <div className="font-semibold text-lg">{result.algorithmName}</div>
-                      <div className="text-xs text-muted-foreground uppercase">
-                        {result.algorithmType}
-                      </div>
-                    </div>
-                  </div>
-                  {place === 1 && <Trophy className="w-6 h-6 text-warning" />}
-                </div>
-
-                {/* Status Indicator */}
-                <div className="mb-3">
-                  {result.status === 'running' && (
-                    <div className="text-xs text-accent flex items-center gap-1">
-                      <div className="w-2 h-2 bg-accent rounded-full animate-pulse" />
-                      Running...
-                    </div>
-                  )}
-                  {result.status === 'finished' && (
-                    <div className="text-xs text-success flex items-center gap-1">
-                      <div className="w-2 h-2 bg-success rounded-full" />
-                      Finished
-                    </div>
-                  )}
-                  {result.status === 'error' && (
-                    <div className="text-xs text-destructive flex items-center gap-1">
-                      <div className="w-2 h-2 bg-destructive rounded-full" />
-                      Error: {result.error}
-                    </div>
-                  )}
-                </div>
-
-                {/* Mini Visualization */}
-                <div className="mb-4 flex-1 min-h-[300px]">
-                  <MiniVisualizer
-                    algorithmType={algorithmType}
-                    frames={result.frames ?? []}
-                    finalState={currentFrame || result.finalState}
-                    playbackSpeedMs={result.localSpeed || globalSpeed}
-                    showAnimatedPreview={showAnimatedPreview}
-                    isSynced={syncPlaybackEnabled}
-                    globalPlayState={result.playing}
-                    onFrameChange={(frameIndex) => {
-                      setResults(prev => prev.map(r => 
-                        r.id === result.id 
-                          ? { ...r, currentFrameIndex: frameIndex }
-                          : r
-                      ));
-                    }}
-                    onPlayStateChange={(playing) => {
-                      if (!syncPlaybackEnabled) {
-                        setResults(prev => prev.map(r => 
-                          r.id === result.id ? { ...r, playing } : r
-                        ));
-                      }
-                    }}
-                    onZoom={() => {
-                      console.log("Zoom clicked for", result.algorithmName);
-                    }}
-                  />
-                </div>
-
-                {/* Per-Card Controls */}
-                {showAnimatedPreview && result.frames && result.frames.length > 0 && (
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleStep(result.id, 'prev')}
-                        disabled={(result.currentFrameIndex || 0) === 0 || syncPlaybackEnabled}
-                        className="h-7 px-2"
-                      >
-                        <SkipBack className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (syncPlaybackEnabled) {
-                            if (globalPlaying) handlePauseAll();
-                            else handlePlayAll();
-                          } else {
-                            setResults(prev => prev.map(r => 
-                              r.id === result.id ? { ...r, playing: !r.playing } : r
-                            ));
-                          }
-                        }}
-                        disabled={syncPlaybackEnabled}
-                        className="h-7 px-2"
-                      >
-                        {result.playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleStep(result.id, 'next')}
-                        disabled={(result.currentFrameIndex || 0) >= (result.frames?.length ?? 1) - 1 || syncPlaybackEnabled}
-                        className="h-7 px-2"
-                      >
-                        <SkipForward className="w-3 h-3" />
-                      </Button>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {(result.currentFrameIndex || 0) + 1} / {result.frames.length}
+                      <SharedGraphView graph={runData.input.graph} />
                     </div>
                   </div>
                 )}
-
-                {/* Per-Card Speed */}
-                {showAnimatedPreview && (
-                  <div className="flex items-center gap-2 mb-4">
-                    <Label className="text-xs w-16">Speed:</Label>
-                    <Slider
-                      value={[result.localSpeed || globalSpeed]}
-                      onValueChange={([value]) => handleLocalSpeedChange(result.id, value)}
-                      min={10}
-                      max={2000}
-                      step={10}
-                      className="flex-1"
-                    />
-                    <span className="text-xs text-muted-foreground w-14">
-                      {result.localSpeed || globalSpeed}ms
-                    </span>
-                  </div>
-                )}
-
-                {/* Generation Time & Stats */}
-                <div className="mt-auto pt-4 border-t border-border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1">Generation Time</div>
-                      <div className="font-mono text-lg font-bold">
-                        {result.generationTimeMs}ms
-                      </div>
+                <div
+                  key={result.id}
+                  className={`p-6 rounded-xl border-2 transition-all flex flex-col flex-1 ${
+                    result.winner
+                      ? 'border-success bg-success/10'
+                      : 'border-border bg-card'
+                  }`}
+                >
+              {/* Algorithm Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  {result.finishOrder !== null && (
+                    <div className={`text-2xl font-bold ${
+                      result.winner ? 'text-success' : 'text-muted-foreground'
+                    }`}>
+                      #{result.finishOrder}
                     </div>
-                    {result.stats && (
-                      <div className="text-right text-xs text-muted-foreground">
-                        {result.stats.comparisons !== undefined && (
-                          <div>Comparisons: {result.stats.comparisons}</div>
-                        )}
-                        {result.stats.swaps !== undefined && (
-                          <div>Swaps: {result.stats.swaps}</div>
-                        )}
-                        <div>Steps: {result.stats.steps || (result.frames?.length ?? 0)}</div>
+                  )}
+                  <div>
+                    <div className="font-semibold text-lg">
+                      {result.finishOrder !== null && `#${result.finishOrder} `}
+                      {result.name}
+                    </div>
+                    {result.winner && (
+                      <div className="text-sm text-success font-semibold flex items-center gap-1 mt-1">
+                        <Trophy className="w-4 h-4" /> Winner!
                       </div>
                     )}
                   </div>
+                </div>
+                {result.winner && <Trophy className="w-6 h-6 text-warning" />}
+              </div>
+
+              {/* Mini Visualization */}
+              <div className="mb-4 flex-1 min-h-[300px]">
+                <MiniVisualizer
+                  algorithmType={algorithmType}
+                  frames={result.frames || []}
+                  finalState={result.finalFrame}
+                  playbackSpeedMs={isSynced ? globalSpeed : (result.localSpeed || globalSpeed)}
+                  showAnimatedPreview={showAnimatedPreview}
+                  localSpeed={result.localSpeed}
+                  onLocalSpeedChange={(speed) => handleLocalSpeedChange(result.id, speed)}
+                  isSynced={isSynced}
+                  globalPlayState={globalPlayState}
+                  currentFrameIndex={result.currentFrameIndex ?? 0}
+                  onFrameChange={(idx) => handleFrameChange(result.id, idx)}
+                  onPlayStateChange={(playing) => handlePlayStateChange(result.id, playing)}
+                  onZoom={() => {
+                    // TODO: Open modal with full-size visualizer
+                    console.log("Zoom clicked for", result.name);
+                  }}
+                />
+              </div>
+
+              {/* Generation Time */}
+              <div className="mt-auto pt-4 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Generation Time</div>
+                    <div className="font-mono text-xl font-bold">{result.time}ms</div>
+                  </div>
+                  {result.winner && (
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground mb-1">Fastest</div>
+                      <div className="text-success font-semibold">✓</div>
+                    </div>
+                  )}
                 </div>
               </div>
+            </div>
+              </React.Fragment>
             );
           })}
         </div>
-
-        {/* Ranking Summary */}
-        {ranking.length > 0 && (
-          <div className="bg-card rounded-xl p-6 border border-border">
-            <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-warning" />
-              Final Ranking
-            </h3>
-            <div className="space-y-2">
-              {ranking.map((rank) => (
-                <div
-                  key={rank.algorithmId}
-                  className={`flex items-center justify-between p-3 rounded-lg ${
-                    rank.place === 1 ? 'bg-success/10 border border-success' :
-                    rank.place === 2 ? 'bg-accent/10 border border-accent/50' :
-                    rank.place === 3 ? 'bg-warning/10 border border-warning/50' :
-                    'bg-muted/30 border border-border'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`text-xl font-bold ${
-                      rank.place === 1 ? 'text-success' :
-                      rank.place === 2 ? 'text-accent' :
-                      rank.place === 3 ? 'text-warning' :
-                      'text-muted-foreground'
-                    }`}>
-                      #{rank.place}
-                    </div>
-                    <div>
-                      <div className="font-semibold">{rank.algorithmName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {selectedMetric === 'generationTimeMs' && `${rank.metricValue}ms`}
-                        {selectedMetric === 'comparisons' && `${rank.metricValue} comparisons`}
-                        {selectedMetric === 'swaps' && `${rank.metricValue} swaps`}
-                        {selectedMetric === 'steps' && `${rank.metricValue} steps`}
-                      </div>
-                    </div>
-                  </div>
-                  {rank.place <= 3 && (
-                    <Trophy className={`w-5 h-5 ${
-                      rank.place === 1 ? 'text-warning' :
-                      rank.place === 2 ? 'text-muted-foreground' :
-                      'text-muted-foreground/50'
-                    }`} />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
 };
 
-export default CompareRunPage;
+export default CompareRun;
+

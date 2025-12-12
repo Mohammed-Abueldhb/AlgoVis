@@ -1,6 +1,22 @@
-export type WarshallNumericFrame =
-  | { type: "matrixSnapshot"; matrix: number[][]; k: number; i?: number; j?: number }
-  | { type: "info"; text: string };
+export interface WarshallNumericFrame {
+  type: "initial" | "check" | "update" | "final";
+  k: number;
+  i: number;
+  j: number;
+  matrix: number[][];
+  highlight: {
+    kCell?: [number, number];
+    currentCell?: [number, number];
+    viaCells?: [[number, number], [number, number]];
+    updated?: boolean;
+  };
+  metadata: {
+    kIndex: number;
+    iIndex: number;
+    jIndex: number;
+    lastUpdate?: { from: number; to: number };
+  };
+}
 
 export interface WarshallNumericEdge {
   u: number;
@@ -9,69 +25,117 @@ export interface WarshallNumericEdge {
 }
 
 /**
- * Generate Warshall frames using TRUE TRANSITIVE CLOSURE logic
- * matrix[i][j] = 1 if a path exists from i to j, else 0
+ * Generate Warshall frames using WEIGHTED SHORTEST-PATH logic (identical to Floyd-Warshall)
+ * matrix[i][j] = min(matrix[i][j], matrix[i][k] + matrix[k][j])
+ * Uses Infinity for no direct edge, carries forward real weights
  */
 export function generateWarshallNumericFrames(
   n: number,
   edges: WarshallNumericEdge[]
 ): WarshallNumericFrame[] {
-  const frames: WarshallNumericFrame[] = [];
-  
-  // True transitive closure: 1 if path exists, 0 otherwise
-  const matrix: number[][] = Array.from({ length: n }, () =>
-    Array(n).fill(0)
+  const INF = Number.POSITIVE_INFINITY;
+  const dist: number[][] = Array.from({ length: n }, () =>
+    Array(n).fill(INF)
   );
 
-  // Initialize: diagonal = 0 (no self-loops in standard transitive closure)
-  // Initialize: direct edges = 1 if edge exists
-  for (const { u, v } of edges) {
-    if (u !== v) {
-      matrix[u][v] = 1; // Path exists if edge exists
-    }
+  // Initialize: distance from vertex to itself is 0
+  for (let i = 0; i < n; i++) {
+    dist[i][i] = 0;
   }
 
-  frames.push({
-    type: "info",
-    text: `Starting Warshall algorithm for ${n} vertices. Initial adjacency matrix: direct edges only.`,
-  });
+  // Initialize: direct edges (use min if multiple edges between same pair)
+  for (const { u, v, weight } of edges) {
+    dist[u][v] = Math.min(dist[u][v], weight);
+  }
+
+  const frames: WarshallNumericFrame[] = [];
   
-  // Initial snapshot (k = -1)
+  // FRAME 0: Initial matrix (CRITICAL - must be first)
   frames.push({
-    type: "matrixSnapshot",
-    matrix: matrix.map((row) => [...row]),
+    type: "initial",
     k: -1,
+    i: -1,
+    j: -1,
+    matrix: dist.map((row) => row.map((val) => val)), // Deep copy
+    highlight: {},
+    metadata: {
+      kIndex: -1,
+      iIndex: -1,
+      jIndex: -1,
+    },
   });
 
-  // Main algorithm: transitive closure
-  // matrix[i][j] = matrix[i][j] OR (matrix[i][k] AND matrix[k][j])
+  // Main algorithm: try all intermediate vertices
+  // matrix[i][j] = min(matrix[i][j], matrix[i][k] + matrix[k][j])
   for (let k = 0; k < n; k++) {
-    let lastUpdated: { i: number; j: number } | null = null;
-    
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
-        // Transitive closure: path exists if direct path OR path through k
-        const oldValue = matrix[i][j];
-        matrix[i][j] = matrix[i][j] || (matrix[i][k] && matrix[k][j] ? 1 : 0);
-        if (matrix[i][j] !== oldValue) {
-          lastUpdated = { i, j };
+        const prevValue = dist[i][j];
+        
+        // CHECK FRAME: Show what we're checking
+        frames.push({
+          type: "check",
+          k,
+          i,
+          j,
+          matrix: dist.map((row) => row.map((val) => val)), // Current state
+          highlight: {
+            kCell: [k, k],
+            currentCell: [i, j],
+            viaCells: [[i, k], [k, j]],
+            updated: false,
+          },
+          metadata: {
+            kIndex: k,
+            iIndex: i,
+            jIndex: j,
+          },
+        });
+
+        // Check if path via k is shorter
+        if (dist[i][k] !== INF && dist[k][j] !== INF) {
+          const viaK = dist[i][k] + dist[k][j];
+          if (viaK < dist[i][j]) {
+            // UPDATE FRAME: Show the update
+            dist[i][j] = viaK;
+            frames.push({
+              type: "update",
+              k,
+              i,
+              j,
+              matrix: dist.map((row) => row.map((val) => val)), // Updated state
+              highlight: {
+                kCell: [k, k],
+                currentCell: [i, j],
+                viaCells: [[i, k], [k, j]],
+                updated: true,
+              },
+              metadata: {
+                kIndex: k,
+                iIndex: i,
+                jIndex: j,
+                lastUpdate: { from: prevValue, to: viaK },
+              },
+            });
+          }
         }
       }
     }
-    
-    // Emit snapshot after completing all i,j loops for this k
-    frames.push({
-      type: "matrixSnapshot",
-      matrix: matrix.map((row) => [...row]),
-      k,
-      i: lastUpdated?.i,
-      j: lastUpdated?.j,
-    });
   }
 
+  // FINAL FRAME: Always show final matrix
   frames.push({
-    type: "info",
-    text: `Algorithm complete! Final matrix contains transitive closure (1 = path exists, 0 = no path).`,
+    type: "final",
+    k: n - 1,
+    i: n - 1,
+    j: n - 1,
+    matrix: dist.map((row) => row.map((val) => val)), // Deep copy
+    highlight: {},
+    metadata: {
+      kIndex: n - 1,
+      iIndex: n - 1,
+      jIndex: n - 1,
+    },
   });
   
   return frames;

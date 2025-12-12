@@ -3,7 +3,36 @@
  * Generates CompareResult for all algorithm types with deterministic behavior
  */
 
-import { CompareResult } from './compareRunStore';
+export interface CompareResult {
+  algorithmId: string;
+  algorithmName: string;
+  frames: any[];
+  finalState: any;
+  generationTimeMs: number;
+  category: "sorting" | "searching" | "greedy" | "dynamic";
+}
+
+export interface CompareInput {
+  type: "array" | "graph";
+  array?: number[];
+  graph?: { numVertices: number; edges: any[] };
+  target?: number;
+  seed?: number;
+}
+
+/**
+ * Deterministic array generator using seed
+ */
+export function generateDeterministicArray(size: number, seed: number = 12345): number[] {
+  // Simple seeded random number generator
+  let state = seed;
+  const next = () => {
+    state = (state * 9301 + 49297) % 233280;
+    return state / 233280;
+  };
+  
+  return Array.from({ length: size }, () => Math.floor(next() * 90) + 10);
+}
 
 /**
  * Run sorting algorithm comparison
@@ -15,22 +44,8 @@ export function runSortingCompare(
   input: number[]
 ): CompareResult {
   const startTime = performance.now();
-  let frames: any[] = [];
-  let error: string | undefined;
-  
-  try {
-    frames = generator([...input]); // Clone to avoid mutation
-  } catch (e: any) {
-    error = e.message || 'Unknown error';
-    frames = [];
-  }
-  
+  const frames = generator([...input]); // Clone to avoid mutation
   const endTime = performance.now();
-
-  // SECTION G: Ensure at least one frame
-  if (frames.length === 0) {
-    frames = [{ array: input, values: input }];
-  }
 
   // Extract final state from last frame
   const finalFrame = frames[frames.length - 1] || frames[0];
@@ -39,33 +54,13 @@ export function runSortingCompare(
     sorted: true
   };
 
-  // Count stats
-  let comparisons = 0;
-  let swaps = 0;
-  
-  frames.forEach((frame: any) => {
-    if (frame.highlights) {
-      frame.highlights.forEach((h: any) => {
-        if (h.type === 'compare') comparisons++;
-        if (h.type === 'swap') swaps++;
-      });
-    }
-  });
-
   return {
     algorithmId,
     algorithmName,
-    algorithmType: 'sorting',
-    status: error ? 'error' : 'finished',
     frames,
     finalState,
     generationTimeMs: Math.round(endTime - startTime),
-    stats: {
-      comparisons,
-      swaps,
-      steps: frames.length
-    },
-    error
+    category: "sorting"
   };
 }
 
@@ -80,52 +75,24 @@ export function runSearchingCompare(
   target: number
 ): CompareResult {
   const startTime = performance.now();
-  let frames: any[] = [];
-  let error: string | undefined;
-  
-  try {
-    frames = generator([...input], target); // Clone to avoid mutation
-  } catch (e: any) {
-    error = e.message || 'Unknown error';
-    frames = [];
-  }
-  
+  const frames = generator([...input], target); // Clone to avoid mutation
   const endTime = performance.now();
-
-  // SECTION G: Ensure at least one frame
-  if (frames.length === 0) {
-    frames = [{ array: input, values: input, target }];
-  }
 
   // Extract final state from last frame
   const finalFrame = frames[frames.length - 1] || frames[0];
   const finalState = {
     array: finalFrame?.array || finalFrame?.values || input,
     target,
-    found: finalFrame?.highlights?.some((h: any) => h.type === 'found' || h.type === 'pivot') || false
+    found: finalFrame?.highlights?.some((h: any) => h.type === 'found') || false
   };
-
-  // Count comparisons (probes)
-  let comparisons = 0;
-  frames.forEach((frame: any) => {
-    if (frame.pointers || frame.highlights) {
-      comparisons++;
-    }
-  });
 
   return {
     algorithmId,
     algorithmName,
-    algorithmType: 'searching',
-    status: error ? 'error' : 'finished',
     frames,
     finalState,
     generationTimeMs: Math.round(endTime - startTime),
-    stats: {
-      comparisons,
-      steps: frames.length
-    },
-    error
+    category: "searching"
   };
 }
 
@@ -140,62 +107,27 @@ export function runGreedyCompare(
   startVertex?: number
 ): CompareResult {
   const startTime = performance.now();
-  let frames: any[] = [];
-  let error: string | undefined;
-  
-  // SECTION A: Deep clone graph to prevent mutations
-  const clonedGraph = JSON.parse(JSON.stringify(graph));
-  
-  try {
-    frames = startVertex !== undefined 
-      ? generator(clonedGraph, startVertex)
-      : generator(clonedGraph);
-  } catch (e: any) {
-    error = e.message || 'Unknown error';
-    frames = [];
-  }
-  
+  const frames = startVertex !== undefined 
+    ? generator(graph, startVertex)
+    : generator(graph);
   const endTime = performance.now();
-
-  // SECTION G: Ensure at least one frame with numVertices
-  if (frames.length === 0) {
-    frames = [{ 
-      type: 'graphSnapshot', 
-      edges: clonedGraph.edges,
-      selectedEdges: [],
-      visited: [],
-      numVertices: clonedGraph.numVertices
-    }];
-  }
-
-  // Ensure all frames have numVertices
-  frames = frames.map(frame => ({
-    ...frame,
-    numVertices: frame.numVertices ?? clonedGraph.numVertices
-  }));
 
   // Extract final state from last frame
   const finalFrame = frames[frames.length - 1] || frames[0];
   const finalState = {
-    edges: finalFrame?.edges || clonedGraph.edges,
+    edges: finalFrame?.edges || graph.edges,
     selectedEdges: finalFrame?.selectedEdges || [],
     visited: finalFrame?.visited || [],
-    numVertices: clonedGraph.numVertices,
     finalState: finalFrame?.finalState || finalFrame
   };
 
   return {
     algorithmId,
     algorithmName,
-    algorithmType: 'greedy',
-    status: error ? 'error' : 'finished',
     frames,
     finalState,
     generationTimeMs: Math.round(endTime - startTime),
-    stats: {
-      steps: frames.length
-    },
-    error
+    category: "greedy"
   };
 }
 
@@ -210,27 +142,12 @@ export function runDPCompare(
   edges: any[]
 ): CompareResult {
   const startTime = performance.now();
-  let frames: any[] = [];
-  let error: string | undefined;
-  
-  try {
-    frames = generator(numVertices, edges);
-  } catch (e: any) {
-    error = e.message || 'Unknown error';
-    frames = [];
-  }
-  
+  const frames = generator(numVertices, edges);
   const endTime = performance.now();
-
-  // SECTION G: Ensure at least one frame
-  if (frames.length === 0) {
-    const emptyMatrix = Array(numVertices).fill(null).map(() => Array(numVertices).fill(0));
-    frames = [{ type: "matrixSnapshot", matrix: emptyMatrix, dist: emptyMatrix, k: -1 }];
-  }
 
   // Extract final state from last matrix snapshot
   const matrixSnapshots = frames.filter((f: any) => f.type === "matrixSnapshot");
-  const finalSnapshot = matrixSnapshots[matrixSnapshots.length - 1] || matrixSnapshots[0] || frames[0];
+  const finalSnapshot = matrixSnapshots[matrixSnapshots.length - 1] || matrixSnapshots[0];
   const finalState = {
     matrix: finalSnapshot?.matrix || finalSnapshot?.dist,
     k: finalSnapshot?.k,
@@ -240,14 +157,10 @@ export function runDPCompare(
   return {
     algorithmId,
     algorithmName,
-    algorithmType: 'dynamic',
-    status: error ? 'error' : 'finished',
     frames,
     finalState,
     generationTimeMs: Math.round(endTime - startTime),
-    stats: {
-      steps: frames.length
-    },
-    error
+    category: "dynamic"
   };
 }
+

@@ -14,27 +14,15 @@ export interface Graph {
  * @param numVertices Number of vertices (4-12)
  * @param density Edge density (0.3-0.8)
  */
-/**
- * Seeded random number generator
- */
-function seededRandom(seed: number): () => number {
-  let state = seed;
-  return () => {
-    state = (state * 9301 + 49297) % 233280;
-    return state / 233280;
-  };
-}
-
-export function generateRandomGraph(numVertices: number = 6, density: number = 0.4, seed?: number): Graph {
+export function generateRandomGraph(numVertices: number = 6, density: number = 0.4): Graph {
   const edges: Edge[] = [];
-  const random = seed !== undefined ? seededRandom(seed) : Math.random;
   
   // Ensure connectivity by creating a spanning tree first
   for (let i = 1; i < numVertices; i++) {
     edges.push({
-      u: Math.floor(random() * i), // Connect to a random previous node
+      u: Math.floor(Math.random() * i), // Connect to a random previous node
       v: i,
-      weight: Math.floor(random() * 50) + 1,
+      weight: Math.floor(Math.random() * 50) + 1,
     });
   }
   
@@ -46,11 +34,11 @@ export function generateRandomGraph(numVertices: number = 6, density: number = 0
         (e.u === u && e.v === v) || (e.u === v && e.v === u)
       );
       
-      if (!exists && random() < density) {
+      if (!exists && Math.random() < density) {
         edges.push({
           u,
           v,
-          weight: Math.floor(random() * 50) + 1,
+          weight: Math.floor(Math.random() * 50) + 1,
         });
       }
     }

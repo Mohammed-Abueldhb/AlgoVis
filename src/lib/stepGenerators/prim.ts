@@ -1,12 +1,18 @@
 import { Edge, Graph } from '../graphGenerator';
 
+export interface Node {
+  id: number;
+  x: number;
+  y: number;
+}
+
 export interface GraphFrame {
   type: 'init' | 'graphSnapshot' | 'complete';
+  nodes: Node[];
   edges: Edge[];
   selectedEdges: Edge[];
-  currentEdge?: Edge;
+  currentEdge?: Edge | null;
   visited: number[];
-  numVertices?: number; // Include numVertices for proper visualization
   labels?: { title?: string; detail?: string };
   finalState?: {
     mstEdges: Edge[];
@@ -17,6 +23,21 @@ export interface GraphFrame {
 export function generatePrimSteps(graph: Graph): GraphFrame[] {
   const { numVertices, edges } = graph;
   const frames: GraphFrame[] = [];
+  
+  // Calculate node positions (constant across all frames)
+  const size = 200;
+  const centerX = size / 2;
+  const centerY = size / 2;
+  const radius = Math.min(size * 0.35, 70);
+  
+  const nodes: Node[] = Array.from({ length: numVertices }, (_, i) => {
+    const angle = (i * 2 * Math.PI) / numVertices - Math.PI / 2;
+    return {
+      id: i,
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle)
+    };
+  });
   
   const adj: Map<number, Edge[]> = new Map();
   for (let i = 0; i < numVertices; i++) adj.set(i, []);
@@ -38,13 +59,14 @@ export function generatePrimSteps(graph: Graph): GraphFrame[] {
   }
   pq.sort((a, b) => a[0] - b[0]);
   
-  // Initial frame with full graph state
+  // Frame 0: Show all nodes and edges (faint), no selected edges
   frames.push({
     type: 'init',
-    edges: [...edges],
-    selectedEdges: [],
+    nodes: [...nodes], // All nodes with positions
+    edges: [...edges], // All edges
+    selectedEdges: [], // No selected edges yet
+    currentEdge: null, // No edge being considered
     visited: [0],
-    numVertices: numVertices,
     labels: { title: 'Initialize', detail: 'Starting from vertex 0' }
   });
   
@@ -57,39 +79,29 @@ export function generatePrimSteps(graph: Graph): GraphFrame[] {
     
     const currentEdge: Edge = { u: from, v: to, weight };
     
-    // Emit exploring frame (before adding edge)
+    // Emit exploring frame - highlight current edge
     frames.push({
       type: 'graphSnapshot',
-      edges: [...edges],
-      selectedEdges: [...selectedEdges],
-      currentEdge,
+      nodes: [...nodes], // All nodes (constant)
+      edges: [...edges], // All edges (constant)
+      selectedEdges: [...selectedEdges], // Current selected edges
+      currentEdge, // Edge being considered (highlighted)
       visited: Array.from(visited),
-      numVertices: numVertices,
       labels: { title: 'Exploring', detail: `Checking edge (${from},${to}) w=${weight}` }
     });
     
     visited.add(to);
     selectedEdges.push(currentEdge);
     
-    // Emit chosen frame (after adding edge)
+    // Emit chosen frame - edge is now selected
     frames.push({
       type: 'graphSnapshot',
-      edges: [...edges],
-      selectedEdges: [...selectedEdges],
-      currentEdge,
+      nodes: [...nodes], // All nodes (constant)
+      edges: [...edges], // All edges (constant)
+      selectedEdges: [...selectedEdges], // Updated with new edge
+      currentEdge: null, // No longer highlighting
       visited: Array.from(visited),
-      numVertices: numVertices,
       labels: { title: 'Chosen', detail: `Added to MST` }
-    });
-    
-    // Emit frame after updating priority queue (showing new candidate edges)
-    frames.push({
-      type: 'graphSnapshot',
-      edges: [...edges],
-      selectedEdges: [...selectedEdges],
-      visited: Array.from(visited),
-      numVertices: numVertices,
-      labels: { title: 'Updated', detail: `Added edges from vertex ${to} to queue` }
     });
     
     // Add edges from newly added node
@@ -105,10 +117,11 @@ export function generatePrimSteps(graph: Graph): GraphFrame[] {
   
   frames.push({
     type: 'complete',
-    edges: [...edges],
-    selectedEdges: [...selectedEdges],
+    nodes: [...nodes], // All nodes (constant)
+    edges: [...edges], // All edges (constant)
+    selectedEdges: [...selectedEdges], // Final MST edges
+    currentEdge: null, // No edge being considered
     visited: Array.from(visited),
-    numVertices: numVertices,
     finalState: {
       mstEdges: [...selectedEdges],
       totalWeight

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Code } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -25,8 +25,15 @@ export const Navigation = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent" />
+          <Link to="/" className="flex items-center gap-2.5 font-bold text-xl group">
+            <div className="relative">
+              <Code 
+                className="w-8 h-8 text-accent transition-all duration-300 group-hover:scale-110" 
+                style={{ 
+                  filter: 'drop-shadow(0 0 8px rgba(6, 182, 212, 0.5))',
+                }}
+              />
+            </div>
             <span className="hidden sm:inline">Algo<span className="text-accent">Viz</span></span>
           </Link>
 

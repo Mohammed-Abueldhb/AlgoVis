@@ -1,12 +1,18 @@
 import { Edge, Graph } from '../graphGenerator';
 
+export interface Node {
+  id: number;
+  x: number;
+  y: number;
+}
+
 export interface GraphFrame {
   type: 'init' | 'graphSnapshot' | 'complete';
+  nodes: Node[];
   edges: Edge[];
   selectedEdges: Edge[];
-  currentEdge?: Edge;
+  currentEdge?: Edge | null;
   visited?: number[];
-  numVertices?: number; // Include numVertices for proper visualization
   labels?: { title?: string; detail?: string };
   finalState?: {
     mstEdges: Edge[];
@@ -49,14 +55,31 @@ export function generateKruskalSteps(graph: Graph): GraphFrame[] {
   const { numVertices, edges } = graph;
   const frames: GraphFrame[] = [];
   
+  // Calculate node positions (constant across all frames)
+  const size = 200;
+  const centerX = size / 2;
+  const centerY = size / 2;
+  const radius = Math.min(size * 0.35, 70);
+  
+  const nodes: Node[] = Array.from({ length: numVertices }, (_, i) => {
+    const angle = (i * 2 * Math.PI) / numVertices - Math.PI / 2;
+    return {
+      id: i,
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle)
+    };
+  });
+  
   // Sort edges by weight ASC
   const sortedEdges = [...edges].sort((a, b) => a.weight - b.weight);
   
+  // Frame 0: Show all nodes and edges (faint), no selected edges
   frames.push({
     type: 'init',
-    edges: [...edges],
-    selectedEdges: [],
-    numVertices: numVertices,
+    nodes: [...nodes], // All nodes with positions
+    edges: [...edges], // All edges
+    selectedEdges: [], // No selected edges yet
+    currentEdge: null, // No edge being considered
     labels: { title: 'Initialize', detail: `Sorted ${edges.length} edges by weight` }
   });
   
@@ -66,13 +89,13 @@ export function generateKruskalSteps(graph: Graph): GraphFrame[] {
   for (const edge of sortedEdges) {
     if (selectedEdges.length >= numVertices - 1) break;
     
-    // Emit exploring frame
+    // Emit exploring frame - highlight current edge
     frames.push({
       type: 'graphSnapshot',
-      edges: [...edges],
-      selectedEdges: [...selectedEdges],
-      currentEdge: edge,
-      numVertices: numVertices,
+      nodes: [...nodes], // All nodes (constant)
+      edges: [...edges], // All edges (constant)
+      selectedEdges: [...selectedEdges], // Current selected edges
+      currentEdge: edge, // Edge being considered (highlighted)
       labels: { title: 'Exploring', detail: `Checking edge (${edge.u},${edge.v}) w=${edge.weight}` }
     });
     
@@ -81,20 +104,20 @@ export function generateKruskalSteps(graph: Graph): GraphFrame[] {
       selectedEdges.push(edge);
       frames.push({
         type: 'graphSnapshot',
-        edges: [...edges],
-        selectedEdges: [...selectedEdges],
-        currentEdge: edge,
-        numVertices: numVertices,
+        nodes: [...nodes], // All nodes (constant)
+        edges: [...edges], // All edges (constant)
+        selectedEdges: [...selectedEdges], // Updated with new edge
+        currentEdge: null, // No longer highlighting
         labels: { title: 'Chosen', detail: `Added to MST` }
       });
     } else {
       // Union failed - edge rejected (would create cycle)
       frames.push({
         type: 'graphSnapshot',
-        edges: [...edges],
-        selectedEdges: [...selectedEdges],
-        currentEdge: edge,
-        numVertices: numVertices,
+        nodes: [...nodes], // All nodes (constant)
+        edges: [...edges], // All edges (constant)
+        selectedEdges: [...selectedEdges], // No change
+        currentEdge: null, // No longer highlighting
         labels: { title: 'Rejected', detail: 'Would create cycle' }
       });
     }
@@ -104,9 +127,10 @@ export function generateKruskalSteps(graph: Graph): GraphFrame[] {
   
   frames.push({
     type: 'complete',
-    edges: [...edges],
-    selectedEdges: [...selectedEdges],
-    numVertices: numVertices,
+    nodes: [...nodes], // All nodes (constant)
+    edges: [...edges], // All edges (constant)
+    selectedEdges: [...selectedEdges], // Final MST edges
+    currentEdge: null, // No edge being considered
     finalState: {
       mstEdges: [...selectedEdges],
       totalWeight

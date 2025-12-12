@@ -3,33 +3,61 @@ export interface Frame {
   highlights?: { indices: number[]; type: 'compare' | 'swap' | 'pivot' | 'mark' }[];
   labels?: { title?: string; detail?: string };
   meta?: any;
+  compareIndex?: number | null;
+  successIndex?: number | null;
+  target?: number;
 }
 
 export function generateInterpolationSearchSteps(arr: number[], target: number): Frame[] {
   const frames: Frame[] = [];
-  const array = [...arr].sort((a, b) => a - b);
   
+  // Preserve the original values array - DO NOT replace with indexes
+  const values = [...arr].filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
+  const sortedValues = [...values].sort((a, b) => a - b);
+  
+  // Validate array has values
+  if (sortedValues.length === 0) {
+    frames.push({
+      array: [],
+      labels: { title: 'Error', detail: 'Empty array' },
+      compareIndex: null,
+      successIndex: null,
+    });
+    return frames;
+  }
+
+  // Initial frame with sorted values (actual numeric values, not indexes)
   frames.push({
-    array: [...array],
-    labels: { title: 'Sorted Array', detail: `Searching for ${target}` }
+    array: [...sortedValues], // Actual values like [15, 23, 45, 67, 89...]
+    labels: { title: 'Sorted Array', detail: `Searching for ${target} in array of ${sortedValues.length} elements` },
+    compareIndex: null,
+    successIndex: null,
   });
 
   let low = 0;
-  let high = array.length - 1;
+  let high = sortedValues.length - 1;
 
-  while (low <= high && target >= array[low] && target <= array[high]) {
+  while (low <= high && target >= sortedValues[low] && target <= sortedValues[high]) {
     if (low === high) {
+      // Only one element left to check
       frames.push({
-        array: [...array],
+        array: [...sortedValues], // Actual values, NOT indexes
         highlights: [{ indices: [low], type: 'compare' }],
-        labels: { title: 'Check Position', detail: `Checking index ${low}` }
+        labels: { title: 'Check Position', detail: `Checking index ${low}, Value: ${sortedValues[low]}` },
+        compareIndex: low,
+        successIndex: null,
+        target: target, // Include target in frame
       });
 
-      if (array[low] === target) {
+      // Compare actual value with target
+      if (sortedValues[low] === target) {
         frames.push({
-          array: [...array],
+          array: [...sortedValues], // Actual values, NOT indexes
           highlights: [{ indices: [low], type: 'pivot' }],
-          labels: { title: 'Found!', detail: `Target ${target} found at index ${low}` }
+          labels: { title: 'Found!', detail: `Target ${target} found at index ${low}` },
+          compareIndex: null,
+          successIndex: low,
+          target: target, // Include target in frame
         });
         return frames;
       }
@@ -37,58 +65,59 @@ export function generateInterpolationSearchSteps(arr: number[], target: number):
     }
 
     // Calculate probe position using interpolation formula
-    const pos = low + Math.floor(
-      ((target - array[low]) * (high - low)) / (array[high] - array[low])
+    // Use actual values in the calculation
+    const probe = low + Math.floor(
+      ((target - sortedValues[low]) * (high - low)) / (sortedValues[high] - sortedValues[low])
     );
 
+    // Ensure probe is within bounds
+    const clampedPos = Math.max(low, Math.min(high, probe));
+
     frames.push({
-      array: [...array],
+      array: [...sortedValues], // Actual values, NOT indexes
       highlights: [
         { indices: [low], type: 'mark' },
         { indices: [high], type: 'mark' },
-        { indices: [pos], type: 'compare' }
+        { indices: [clampedPos], type: 'compare' }
       ],
       labels: {
         title: 'Interpolate Position',
-        detail: `Calculated position: ${pos}, Value: ${array[pos]}, Target: ${target}`
-      }
+        detail: `Calculated position: ${clampedPos}, Value: ${sortedValues[clampedPos]}, Target: ${target}`
+      },
+      compareIndex: clampedPos, // Index of the bar to highlight red
+      successIndex: null,
+      target: target, // Include target in frame
     });
 
-    if (array[pos] === target) {
+    // Compare actual value at probe position with target
+    if (sortedValues[clampedPos] === target) {
+      // Found! Show success frame
       frames.push({
-        array: [...array],
-        highlights: [{ indices: [pos], type: 'pivot' }],
-        labels: { title: 'Found!', detail: `Target ${target} found at index ${pos}` }
+        array: [...sortedValues], // Actual values, NOT indexes
+        highlights: [{ indices: [clampedPos], type: 'pivot' }],
+        labels: { title: 'Found!', detail: `Target ${target} found at index ${clampedPos}` },
+        compareIndex: null,
+        successIndex: clampedPos, // Index of the bar to highlight green
+        target: target, // Include target in frame
       });
       return frames;
     }
 
-    if (array[pos] < target) {
-      frames.push({
-        array: [...array],
-        highlights: [{ indices: [pos], type: 'swap' }],
-        labels: {
-          title: 'Search Right',
-          detail: `${array[pos]} < ${target}, search right half`
-        }
-      });
-      low = pos + 1;
+    // Not found at probe position, adjust search range
+    if (sortedValues[clampedPos] < target) {
+      low = clampedPos + 1;
     } else {
-      frames.push({
-        array: [...array],
-        highlights: [{ indices: [pos], type: 'swap' }],
-        labels: {
-          title: 'Search Left',
-          detail: `${array[pos]} > ${target}, search left half`
-        }
-      });
-      high = pos - 1;
+      high = clampedPos - 1;
     }
   }
 
+  // Target not found
   frames.push({
-    array: [...array],
-    labels: { title: 'Not Found', detail: `Target ${target} not in array` }
+    array: [...sortedValues], // Actual values, NOT indexes
+    labels: { title: 'Not Found', detail: `Target ${target} not in array` },
+    compareIndex: null,
+    successIndex: null,
+    target: target, // Include target in frame
   });
 
   return frames;

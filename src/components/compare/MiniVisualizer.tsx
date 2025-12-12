@@ -17,6 +17,9 @@ interface MiniVisualizerProps {
   isSynced?: boolean;
   globalPlayState?: boolean;
   onPlayStateChange?: (playing: boolean) => void;
+  currentFrameIndex?: number;
+  localSpeed?: number;
+  onLocalSpeedChange?: (speed: number) => void;
 }
 
 export const MiniVisualizer = ({
@@ -32,10 +35,18 @@ export const MiniVisualizer = ({
   isSynced = false,
   globalPlayState = false,
   onPlayStateChange,
+  currentFrameIndex: externalFrameIndex,
+  localSpeed,
+  onLocalSpeedChange,
 }: MiniVisualizerProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
-  const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
+  const [internalFrameIndex, setInternalFrameIndex] = useState(0);
   const animationRef = useRef<number>();
+
+  // Use external frame index when synced, internal when not
+  const currentFrameIndex = isSynced && externalFrameIndex !== undefined 
+    ? externalFrameIndex 
+    : internalFrameIndex;
 
   // Sync with global play state if synced
   useEffect(() => {
@@ -44,24 +55,37 @@ export const MiniVisualizer = ({
     }
   }, [isSynced, globalPlayState]);
 
+  // Update internal index when external changes (synced mode)
+  useEffect(() => {
+    if (isSynced && externalFrameIndex !== undefined) {
+      setInternalFrameIndex(externalFrameIndex);
+    }
+  }, [isSynced, externalFrameIndex]);
+
   // Get current frame
   const getCurrentFrame = () => {
     if (showAnimatedPreview && frames.length > 0) {
-      return frames[currentFrameIndex] || frames[frames.length - 1] || finalState;
+      // Use currentFrameIndex to get the exact frame
+      const frame = frames[currentFrameIndex];
+      if (frame) return frame;
+      // Fallback to last frame if index is out of bounds
+      return frames[frames.length - 1];
     }
+    // If not in preview mode, use finalState or last frame
     return finalState || (frames.length > 0 ? frames[frames.length - 1] : null);
   };
 
   const currentFrame = getCurrentFrame();
 
-  // Animation logic
+  // Animation logic (only when NOT synced)
   useEffect(() => {
-    if (showAnimatedPreview && isAnimating && frames.length > 0 && playbackSpeedMs > 0) {
+    if (!isSynced && showAnimatedPreview && isAnimating && frames.length > 0 && playbackSpeedMs > 0) {
       animationRef.current = window.setInterval(() => {
-        setCurrentFrameIndex((prev) => {
-          const next = prev >= frames.length - 1 ? frames.length - 1 : prev + 1;
+        setInternalFrameIndex((prev) => {
+          const max = frames.length - 1;
+          const next = Math.min(prev + 1, max);
           if (onFrameChange) onFrameChange(next);
-          if (next >= frames.length - 1) {
+          if (next >= max) {
             setIsAnimating(false);
             if (onPlayStateChange) onPlayStateChange(false);
           }
@@ -80,7 +104,7 @@ export const MiniVisualizer = ({
         clearInterval(animationRef.current);
       }
     };
-  }, [showAnimatedPreview, isAnimating, frames.length, playbackSpeedMs, onFrameChange, onPlayStateChange]);
+  }, [isSynced, showAnimatedPreview, isAnimating, frames.length, playbackSpeedMs, onFrameChange, onPlayStateChange]);
 
   const handlePlayPause = () => {
     if (frames.length === 0) return;
@@ -88,16 +112,26 @@ export const MiniVisualizer = ({
     setIsAnimating(newState);
     if (onPlayStateChange) onPlayStateChange(newState);
     if (!newState && currentFrameIndex >= frames.length - 1) {
-      setCurrentFrameIndex(0);
-      if (onFrameChange) onFrameChange(0);
+      const resetIndex = 0;
+      if (isSynced) {
+        if (onFrameChange) onFrameChange(resetIndex);
+      } else {
+        setInternalFrameIndex(resetIndex);
+        if (onFrameChange) onFrameChange(resetIndex);
+      }
     }
   };
 
   const handleStepForward = () => {
     if (frames.length === 0) return;
-    const next = Math.min(currentFrameIndex + 1, frames.length - 1);
-    setCurrentFrameIndex(next);
-    if (onFrameChange) onFrameChange(next);
+    const max = frames.length - 1;
+    const next = Math.min(currentFrameIndex + 1, max);
+    if (isSynced) {
+      if (onFrameChange) onFrameChange(next);
+    } else {
+      setInternalFrameIndex(next);
+      if (onFrameChange) onFrameChange(next);
+    }
     setIsAnimating(false);
     if (onPlayStateChange) onPlayStateChange(false);
   };
@@ -105,8 +139,12 @@ export const MiniVisualizer = ({
   const handleStepBack = () => {
     if (frames.length === 0) return;
     const prev = Math.max(currentFrameIndex - 1, 0);
-    setCurrentFrameIndex(prev);
-    if (onFrameChange) onFrameChange(prev);
+    if (isSynced) {
+      if (onFrameChange) onFrameChange(prev);
+    } else {
+      setInternalFrameIndex(prev);
+      if (onFrameChange) onFrameChange(prev);
+    }
     setIsAnimating(false);
     if (onPlayStateChange) onPlayStateChange(false);
   };
@@ -118,24 +156,37 @@ export const MiniVisualizer = ({
     const values = array.slice(0, 20);
     const highlights = currentFrame.highlights || [];
 
+    // Determine bar colors: base, active (compare), swapped
+    const getBarColor = (index: number) => {
+      const highlight = highlights.find((h: any) => 
+        h.indices?.includes(index) || h.i === index || h.j === index
+      );
+      
+      if (highlight?.type === 'swap') {
+        return '#FF7B7B'; // Light red for swapped
+      } else if (highlight?.type === 'compare' || highlight?.type === 'pivot' || highlight?.type === 'mark') {
+        return '#53E0C1'; // Accent color for active/comparing
+      } else {
+        // Base gradient: #6BA8FF → #8AB6FF
+        return 'rgba(120, 170, 255, 0.9)';
+      }
+    };
+
     return (
       <div className="bg-card rounded-lg p-3 border border-border/50 min-w-[220px] flex-1">
         <div className="flex items-end h-40 w-full gap-1 mb-2">
           {values.map((value: number, index: number) => {
             const barHeight = (value / maxValue) * 95;
-            const isHighlighted = highlights.some((h: any) => 
-              h.indices?.includes(index) || h.i === index || h.j === index
-            );
+            const barColor = getBarColor(index);
             return (
               <div
                 key={`bar-${index}`}
-                className={`rounded-t-md transition-all duration-100 ${
-                  isHighlighted ? 'bg-accent' : 'bg-blue-400'
-                }`}
+                className="rounded-t-md transition-all duration-100"
                 style={{
                   height: `${barHeight}%`,
                   width: `${100 / values.length}%`,
-                  minHeight: '4px'
+                  minHeight: '4px',
+                  backgroundColor: barColor,
                 }}
               />
             );
@@ -157,7 +208,9 @@ export const MiniVisualizer = ({
                 variant="ghost"
                 size="sm"
                 onClick={handlePlayPause}
+                disabled={isSynced}
                 className="h-6 px-1"
+                title={isSynced ? "Use Play All button when synced" : ""}
               >
                 {isAnimating ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
               </Button>
@@ -189,37 +242,108 @@ export const MiniVisualizer = ({
 
   // Searching algorithms - show array with found element highlighted
   if (algorithmType === "searching" && currentFrame) {
-    const array = currentFrame.array || currentFrame.values || [];
-    const maxValue = Math.max(...(array.length > 0 ? array : [100]), 1);
-    const highlights = currentFrame.highlights || currentFrame.pointers || {};
-    const foundIndex = highlights.find?.((h: any) => h.type === 'found' || h.type === 'pivot')?.indices?.[0] 
-      || highlights.probe;
+    // Get array from frame, ensure it's an array of numbers
+    const rawArray = currentFrame.array || currentFrame.values || [];
+    const array = Array.isArray(rawArray) 
+      ? rawArray.filter((v: any) => typeof v === 'number' && !isNaN(v) && isFinite(v))
+      : [];
+    
+    const compareIndex = currentFrame.compareIndex ?? null;
+    const successIndex = currentFrame.successIndex ?? null;
+    
+    // Limit to first 20 elements for display
     const values = array.slice(0, 20);
+
+    // Calculate min, max, and range for proper height scaling
+    const MIN_HEIGHT = 20; // Minimum bar height in pixels
+    const MAX_HEIGHT = 160; // Maximum bar height in pixels
+    
+    let minVal = 0;
+    let maxVal = 100;
+    let range = 1;
+    
+    if (values.length > 0) {
+      minVal = Math.min(...values);
+      maxVal = Math.max(...values);
+      range = Math.max(maxVal - minVal, 1); // Ensure at least 1 to avoid division by zero
+    }
+
+    // Determine bar color: green for success, red for compare, base for normal
+    const getBarColor = (index: number) => {
+      if (successIndex === index) {
+        return '#4ADE80'; // Green for success
+      } else if (compareIndex === index) {
+        return '#FF6B6B'; // Red for comparison
+      } else {
+        return '#6FA8FF'; // Base color
+      }
+    };
+
+    // If no values, show message
+    if (values.length === 0) {
+      return (
+        <div className="bg-card rounded-lg p-3 border border-border/50 min-w-[220px] flex-1">
+          <div className="text-sm text-muted-foreground text-center py-8">
+            No data to display
+          </div>
+        </div>
+      );
+    }
+
+    // Get target from frame
+    const target = currentFrame.target ?? null;
 
     return (
       <div className="bg-card rounded-lg p-3 border border-border/50 min-w-[220px] flex-1">
-        <div className="flex items-end h-40 w-full gap-1 mb-2 relative">
+        {/* Display target above bars */}
+        {target !== null && (
+          <div className="text-xs text-muted-foreground text-center mb-2 font-medium">
+            Searching for: <span className="text-accent font-semibold">{target}</span>
+          </div>
+        )}
+        <div className="flex items-end w-full gap-0.5 mb-2 relative" style={{ height: `${MAX_HEIGHT}px` }}>
           {values.map((value: number, index: number) => {
-            const barHeight = (value / maxValue) * 95;
-            const isFound = foundIndex === index;
-            const isProbing = highlights.left === index || highlights.right === index || highlights.mid === index;
+            // Calculate bar height using proper normalization
+            // heightPx = ((value - minVal) / range) * (MAX_HEIGHT - MIN_HEIGHT) + MIN_HEIGHT
+            const normalizedValue = range > 0 ? (value - minVal) / range : 0;
+            const heightPx = normalizedValue * (MAX_HEIGHT - MIN_HEIGHT) + MIN_HEIGHT;
+            const barColor = getBarColor(index);
+            const isComparing = compareIndex === index;
+            
             return (
               <div
                 key={`bar-${index}`}
-                className={`rounded-t-md transition-all duration-100 relative ${
-                  isFound ? 'bg-green-500' : isProbing ? 'bg-accent' : 'bg-blue-400'
-                }`}
+                className="flex flex-col items-center justify-end flex-1"
                 style={{
-                  height: `${barHeight}%`,
                   width: `${100 / values.length}%`,
-                  minHeight: '4px'
+                  minWidth: '8px',
                 }}
               >
-                {isFound && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs text-green-600 font-bold">
-                    ✓
-                  </div>
-                )}
+                <div
+                  className={`rounded-t-md transition-all duration-100 w-full ${
+                    isComparing ? 'animate-pulse' : ''
+                  }`}
+                  style={{
+                    height: `${heightPx}px`,
+                    minHeight: `${MIN_HEIGHT}px`,
+                    backgroundColor: barColor,
+                  }}
+                  title={`Index ${index}: Value ${value}`}
+                />
+                {/* Bar number/label - shows actual value */}
+                <div
+                  className="text-[10px] font-mono mt-0.5 text-center leading-tight"
+                  style={{
+                    color: '#C9D7FF',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={`Index ${index}: Value ${value}`}
+                >
+                  {value}
+                </div>
               </div>
             );
           })}
@@ -240,7 +364,9 @@ export const MiniVisualizer = ({
                 variant="ghost"
                 size="sm"
                 onClick={handlePlayPause}
+                disabled={isSynced}
                 className="h-6 px-1"
+                title={isSynced ? "Use Play All button when synced" : ""}
               >
                 {isAnimating ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
               </Button>
@@ -272,24 +398,35 @@ export const MiniVisualizer = ({
 
   // Greedy algorithms - show graph using GraphMiniView
   if (algorithmType === "greedy" && currentFrame) {
+    const nodes = currentFrame.nodes || [];
     const edges = currentFrame.edges || [];
     const selectedEdges = currentFrame.selectedEdges || [];
-    const currentEdge = currentFrame.currentEdge;
-    // SECTION D: Use numVertices from frame, fallback to calculating from edges
-    const numVertices = currentFrame.numVertices ?? (
-      edges.length > 0
-        ? Math.max(...edges.flatMap((e: any) => [e.u, e.v])) + 1
-        : 6
-    );
+    const currentEdge = currentFrame.currentEdge ?? null;
+    const relaxedEdge = currentFrame.relaxedEdge ?? null; // For Dijkstra
+    const distances = currentFrame.distances; // For Dijkstra
+    const currentVertex = currentFrame.currentVertex ?? null; // For Dijkstra
+    
+    // Calculate numVertices from nodes if available, otherwise from edges
+    const numVertices = nodes.length > 0
+      ? nodes.length
+      : currentFrame?.visited?.length 
+        ? Math.max(...currentFrame.visited) + 1
+        : currentFrame?.edges?.length 
+          ? Math.max(...currentFrame.edges.flatMap((e: any) => [e.u, e.v])) + 1
+          : 6;
 
     return (
       <div className="bg-card rounded-lg p-3 border border-border/50 min-w-[220px] flex-1">
         <div className="mb-2">
           <GraphMiniView
+            nodes={nodes}
             edges={edges}
             selectedEdges={selectedEdges}
             currentEdge={currentEdge}
             numVertices={numVertices}
+            distances={distances}
+            relaxedEdge={relaxedEdge}
+            currentVertex={currentVertex}
           />
         </div>
         {showAnimatedPreview && frames.length > 0 && (
@@ -308,7 +445,9 @@ export const MiniVisualizer = ({
                 variant="ghost"
                 size="sm"
                 onClick={handlePlayPause}
+                disabled={isSynced}
                 className="h-6 px-1"
+                title={isSynced ? "Use Play All button when synced" : ""}
               >
                 {isAnimating ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
               </Button>
@@ -339,16 +478,41 @@ export const MiniVisualizer = ({
   }
 
   // Dynamic Programming - show matrix
-  if (algorithmType === "dp" && currentFrame) {
-    const matrix = currentFrame.matrix || currentFrame.dist;
-    if (!matrix || !Array.isArray(matrix)) {
-      return (
-        <div className="bg-card rounded-lg p-3 border border-border/50 h-40 flex items-center justify-center min-w-[220px] flex-1">
-          <div className="text-xs text-muted-foreground text-center">
-            No matrix data
-          </div>
-        </div>
-      );
+  if (algorithmType === "dp") {
+    // Always show matrix - use currentFrame if available, otherwise use initial frame, otherwise last frame
+    let matrix: number[][] | null = null;
+    let frameType = "initial";
+    let k = -1;
+    let i = -1;
+    let j = -1;
+    let highlight: any = {};
+
+    if (currentFrame) {
+      matrix = currentFrame.matrix || currentFrame.dist;
+      frameType = currentFrame.type || "initial";
+      k = currentFrame.k !== undefined ? currentFrame.k : -1;
+      i = currentFrame.i !== undefined ? currentFrame.i : -1;
+      j = currentFrame.j !== undefined ? currentFrame.j : -1;
+      highlight = currentFrame.highlight || {};
+    } else if (frames.length > 0) {
+      // Try to get initial frame first (type: "initial" or k === -1)
+      const initialFrame = frames.find((f: any) => f.type === "initial" || f.k === -1);
+      if (initialFrame) {
+        matrix = initialFrame.matrix || initialFrame.dist;
+        frameType = initialFrame.type || "initial";
+        k = initialFrame.k !== undefined ? initialFrame.k : -1;
+      } else {
+        // Fallback to last frame
+        const lastFrame = frames[frames.length - 1];
+        matrix = lastFrame.matrix || lastFrame.dist;
+        frameType = lastFrame.type || "final";
+        k = lastFrame.k !== undefined ? lastFrame.k : -1;
+      }
+    }
+
+    // If still no matrix, create empty one to prevent "No matrix data"
+    if (!matrix || !Array.isArray(matrix) || matrix.length === 0) {
+      matrix = Array.from({ length: 4 }, () => Array(4).fill(0));
     }
     
     const formatValue = (value: number): string => {
@@ -359,29 +523,67 @@ export const MiniVisualizer = ({
     };
 
     const maxSize = Math.min(matrix.length, 8);
-    const k = currentFrame.k !== undefined ? currentFrame.k : -1;
+    
+    // Extract highlight info from current frame ONLY (per-frame, not accumulated)
+    const currentCell = highlight.currentCell || (i >= 0 && j >= 0 ? [i, j] : null);
+    const viaCells = highlight.viaCells || [];
+    const isUpdated = highlight.updated === true;
+    
+    // Only highlight the 3 active cells: (i,k), (k,j), (i,j)
+    // Extract via cells: [i,k] and [k,j]
+    const viaIK = viaCells.length > 0 ? viaCells[0] : null; // [i, k]
+    const viaKJ = viaCells.length > 1 ? viaCells[1] : null; // [k, j]
+    const activeIJ = currentCell; // [i, j]
 
     return (
       <div className="bg-card rounded-lg p-3 border border-border/50 min-w-[220px] flex-1">
         <div className="text-xs text-muted-foreground mb-2 text-center">
-          {k === -1 ? 'Initial' : k >= matrix.length ? 'Final' : `k = ${k}`}
+          {frameType === "initial" ? 'Initial' : 
+           frameType === "final" ? 'Final' : 
+           k >= 0 ? `k = ${k}` : 'Matrix'}
         </div>
-        <div className="overflow-x-auto mb-2 bg-background/50 rounded p-2">
-          <div className="inline-grid gap-1 text-[9px] min-w-max" style={{ gridTemplateColumns: `repeat(${maxSize}, 1fr)` }}>
+        <div className="overflow-x-auto mb-2 bg-[#0F172A] rounded p-2">
+          <div className="inline-grid gap-1 min-w-max" style={{ gridTemplateColumns: `repeat(${maxSize}, 1fr)` }}>
             {matrix.slice(0, maxSize).map((row: number[], rowIndex: number) =>
               row.slice(0, maxSize).map((value: number, colIndex: number) => {
-                const isKRow = k >= 0 && k === rowIndex;
-                const isKCol = k >= 0 && k === colIndex;
-                const isUpdated = currentFrame.i === rowIndex && currentFrame.j === colIndex;
+                // Check if this cell is one of the 3 active cells (per-frame only)
+                const isActiveIJ = activeIJ && activeIJ[0] === rowIndex && activeIJ[1] === colIndex;
+                const isActiveIK = viaIK && viaIK[0] === rowIndex && viaIK[1] === colIndex;
+                const isActiveKJ = viaKJ && viaKJ[0] === rowIndex && viaKJ[1] === colIndex;
+                
+                // Determine cell background color (only for the 3 active cells)
+                let bgColor = '#1E293B'; // default
+                let animateClass = '';
+                let fontSize = '11px';
+                
+                // Priority: updated cell > current cell > via cells
+                if (isUpdated && isActiveIJ) {
+                  bgColor = '#4ADE80'; // green for updated cell
+                  animateClass = 'animate-pulse';
+                } else if (isActiveIJ) {
+                  bgColor = '#FFD86B'; // yellow for current cell (i,j)
+                } else if (isActiveIK || isActiveKJ) {
+                  bgColor = '#2DD4BF'; // cyan for via cells (i,k) or (k,j)
+                }
+                
+                // Adjust font size for long numbers
+                const valueStr = formatValue(value);
+                if (valueStr.length > 4) {
+                  fontSize = '9px';
+                } else if (valueStr.length > 2) {
+                  fontSize = '10px';
+                }
+                
                 return (
                   <div
                     key={`cell-${rowIndex}-${colIndex}`}
-                    className={`px-1.5 py-1 text-center border border-border/30 bg-background min-w-[28px] font-mono ${
-                      isUpdated ? 'bg-success/30 border-success' :
-                      isKRow || isKCol ? 'bg-accent/10' : ''
-                    }`}
+                    className={`text-center border border-border/30 min-w-[38px] h-[38px] flex items-center justify-center font-mono text-white transition-colors duration-150 ${animateClass}`}
+                    style={{ 
+                      backgroundColor: bgColor,
+                      fontSize: fontSize
+                    }}
                   >
-                    {formatValue(value)}
+                    {valueStr}
                   </div>
                 );
               })
@@ -404,7 +606,9 @@ export const MiniVisualizer = ({
                 variant="ghost"
                 size="sm"
                 onClick={handlePlayPause}
+                disabled={isSynced}
                 className="h-6 px-1"
+                title={isSynced ? "Use Play All button when synced" : ""}
               >
                 {isAnimating ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
               </Button>

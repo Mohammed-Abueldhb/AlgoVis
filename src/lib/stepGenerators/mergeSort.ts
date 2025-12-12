@@ -138,11 +138,42 @@ export function generateMergeSortSteps(arr: number[]): Frame[] {
       k = left;
 
     while (i < leftArr.length && j < rightArr.length) {
+      // Frame: comparison
+      frames.push({
+        array: [...array],
+        highlights: [
+          { indices: [left + i], type: 'compare' },
+          { indices: [mid + 1 + j], type: 'compare' }
+        ],
+        labels: {
+          title: 'Compare',
+          detail: `Comparing ${leftArr[i]} and ${rightArr[j]}`
+        }
+      });
+
       if (leftArr[i] <= rightArr[j]) {
         array[k] = leftArr[i];
+        // Frame: take from left
+        frames.push({
+          array: [...array],
+          highlights: [{ indices: [k], type: 'mark' }],
+          labels: {
+            title: 'Take Left',
+            detail: `Taking ${leftArr[i]} from left array`
+          }
+        });
         i++;
       } else {
         array[k] = rightArr[j];
+        // Frame: take from right
+        frames.push({
+          array: [...array],
+          highlights: [{ indices: [k], type: 'mark' }],
+          labels: {
+            title: 'Take Right',
+            detail: `Taking ${rightArr[j]} from right array`
+          }
+        });
         j++;
       }
       k++;
@@ -150,12 +181,30 @@ export function generateMergeSortSteps(arr: number[]): Frame[] {
 
     while (i < leftArr.length) {
       array[k] = leftArr[i];
+      // Frame: copy remaining from left
+      frames.push({
+        array: [...array],
+        highlights: [{ indices: [k], type: 'mark' }],
+        labels: {
+          title: 'Copy Left',
+          detail: `Copying remaining ${leftArr[i]} from left`
+        }
+      });
       i++;
       k++;
     }
 
     while (j < rightArr.length) {
       array[k] = rightArr[j];
+      // Frame: copy remaining from right
+      frames.push({
+        array: [...array],
+        highlights: [{ indices: [k], type: 'mark' }],
+        labels: {
+          title: 'Copy Right',
+          detail: `Copying remaining ${rightArr[j]} from right`
+        }
+      });
       j++;
       k++;
     }
