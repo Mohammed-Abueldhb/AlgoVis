@@ -21,40 +21,42 @@ export interface WarshallWeightedFrame {
 export interface WarshallWeightedEdge {
   u: number;
   v: number;
-  weight?: number;
+  weight: number;
 }
 
 /**
- * Generate Warshall frames for boolean reachability (transitive closure)
- * reachable[i][j] = reachable[i][j] OR (reachable[i][k] AND reachable[k][j])
- * Matrix values are strictly 0 (not reachable) or 1 (reachable)
+ * Generate Warshall frames using WEIGHTED transitive closure
+ * Similar to Floyd-Warshall but with Warshall's step ordering
+ * Produces REAL NUMERIC values (weights or Infinity)
  */
 export function generateWarshallWeightedFrames(
   n: number,
   edges: WarshallWeightedEdge[]
 ): WarshallWeightedFrame[] {
-  const reachable: number[][] = Array.from({ length: n }, () =>
-    Array(n).fill(0)
+  const INF = Number.POSITIVE_INFINITY;
+  const dist: number[][] = Array.from({ length: n }, () =>
+    Array(n).fill(INF)
   );
 
-  // Initialize diagonal as reachable and direct edges as reachable
+  // Initialize: distance from vertex to itself is 0
   for (let i = 0; i < n; i++) {
-    reachable[i][i] = 1;
+    dist[i][i] = 0;
   }
 
-  for (const { u, v } of edges) {
-    reachable[u][v] = 1;
+  // Initialize: direct edges (use min if multiple edges between same pair)
+  for (const { u, v, weight } of edges) {
+    dist[u][v] = Math.min(dist[u][v], weight);
   }
 
   const frames: WarshallWeightedFrame[] = [];
-
-  // FRAME 0: Initial reachability matrix
+  
+  // FRAME 0: Initial matrix (CRITICAL - must be first)
   frames.push({
     type: "initial",
     k: -1,
     i: -1,
     j: -1,
-    matrix: reachable.map((row) => [...row]),
+    matrix: dist.map((row) => row.map((val) => val)), // Deep copy
     highlight: {},
     metadata: {
       kIndex: -1,
@@ -63,19 +65,19 @@ export function generateWarshallWeightedFrames(
     },
   });
 
-  // Main algorithm: boolean transitive closure
+  // Main algorithm: try all intermediate vertices
   for (let k = 0; k < n; k++) {
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
-        const prevValue = reachable[i][j];
-
-        // CHECK FRAME: show current evaluation
+        const prevValue = dist[i][j];
+        
+        // CHECK FRAME: Show what we're checking
         frames.push({
           type: "check",
           k,
           i,
           j,
-          matrix: reachable.map((row) => [...row]),
+          matrix: dist.map((row) => row.map((val) => val)), // Current state
           highlight: {
             kCell: [k, k],
             currentCell: [i, j],
@@ -89,16 +91,18 @@ export function generateWarshallWeightedFrames(
           },
         });
 
-        // Boolean update: reachable via k
-        if (reachable[i][k] === 1 && reachable[k][j] === 1) {
-          if (reachable[i][j] === 0) {
-            reachable[i][j] = 1;
+        // Check if path via k is shorter
+        if (dist[i][k] !== INF && dist[k][j] !== INF) {
+          const viaK = dist[i][k] + dist[k][j];
+          if (viaK < dist[i][j]) {
+            // UPDATE FRAME: Show the update
+            dist[i][j] = viaK;
             frames.push({
               type: "update",
               k,
               i,
               j,
-              matrix: reachable.map((row) => [...row]),
+              matrix: dist.map((row) => row.map((val) => val)), // Updated state
               highlight: {
                 kCell: [k, k],
                 currentCell: [i, j],
@@ -109,7 +113,7 @@ export function generateWarshallWeightedFrames(
                 kIndex: k,
                 iIndex: i,
                 jIndex: j,
-                lastUpdate: { from: prevValue, to: 1 },
+                lastUpdate: { from: prevValue, to: viaK },
               },
             });
           }
@@ -118,13 +122,13 @@ export function generateWarshallWeightedFrames(
     }
   }
 
-  // FINAL FRAME: final reachability matrix
+  // FINAL FRAME: Always show final matrix
   frames.push({
     type: "final",
     k: n - 1,
     i: n - 1,
     j: n - 1,
-    matrix: reachable.map((row) => [...row]),
+    matrix: dist.map((row) => row.map((val) => val)), // Deep copy
     highlight: {},
     metadata: {
       kIndex: n - 1,
@@ -132,7 +136,7 @@ export function generateWarshallWeightedFrames(
       jIndex: n - 1,
     },
   });
-
+  
   return frames;
 }
-  
+
