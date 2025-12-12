@@ -162,7 +162,7 @@ const WarshallPage = () => {
             Back to Algorithms
           </Button>
           <h1 className="text-4xl font-bold mb-2">Warshall Algorithm Visualizer</h1>
-          <p className="text-muted-foreground">Reachability (boolean transitive closure) using dynamic programming</p>
+          <p className="text-muted-foreground">Transitive closure using dynamic programming</p>
         </div>
 
         {/* Main Layout: Graph (left) and Controls (right) */}
@@ -349,7 +349,6 @@ const WarshallPage = () => {
               setCurrentFrameIndex(index);
               setIsPlaying(false);
             }}
-            mode="reachability"
           />
         </div>
       </div>

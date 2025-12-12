@@ -152,7 +152,7 @@ const Warshall = () => {
             Back to Algorithms
           </Button>
           <h1 className="text-4xl font-bold mb-2">Warshall Algorithm Visualizer</h1>
-          <p className="text-muted-foreground">Boolean transitive closure (reachability) using dynamic programming</p>
+          <p className="text-muted-foreground">Weighted transitive closure using dynamic programming</p>
         </div>
 
         {/* Main Layout: Graph + Matrix (left) and Controls (right) */}
@@ -175,7 +175,6 @@ const Warshall = () => {
               initialIndex={currentFrameIndex}
               speedMs={speed}
               onFrameChange={(index) => setCurrentFrameIndex(index)}
-              mode="reachability"
             />
           </div>
 
@@ -266,14 +265,14 @@ const Warshall = () => {
             <div className="bg-card rounded-xl p-4 border border-border">
               <h3 className="font-medium mb-2.5 text-sm text-muted-foreground">How It Works</h3>
               <div className="text-xs text-muted-foreground space-y-2">
-                <p>Finds reachability between all pairs of vertices (0/1 matrix).</p>
+                <p>Finds shortest weighted paths between all pairs of vertices.</p>
                 <ol className="list-decimal list-inside space-y-1 ml-1">
-                  <li>Initialize matrix with 1 on the diagonal and for every edge</li>
+                  <li>Initialize matrix with edge weights (Infinity if no direct edge)</li>
                   <li>For each intermediate vertex k, update matrix</li>
-                  <li>Rule: reachable[i][j] = reachable[i][j] OR (reachable[i][k] AND reachable[k][j])</li>
+                  <li>Rule: matrix[i][j] = min(matrix[i][j], matrix[i][k] + matrix[k][j])</li>
                 </ol>
                 <p className="pt-2 border-t border-border mt-2">
-                  Final matrix shows reachability only (1 = reachable, 0 = not reachable).
+                  Final matrix shows shortest weighted path distances (or ∞ if unreachable).
                 </p>
               </div>
             </div>

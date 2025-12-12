@@ -17,7 +17,6 @@ interface MatrixViewerWithFramesProps {
   speedMs?: number;
   onPlayEnd?: () => void;
   onFrameChange?: (index: number) => void;
-  mode?: "distance" | "reachability";
 }
 
 export const MatrixViewerWithFrames = ({
@@ -26,7 +25,6 @@ export const MatrixViewerWithFrames = ({
   speedMs = 800,
   onPlayEnd,
   onFrameChange,
-  mode = "distance",
 }: MatrixViewerWithFramesProps) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -159,9 +157,7 @@ export const MatrixViewerWithFrames = ({
   if (frames.length === 0 || !currentFrame) {
     return (
       <div className="bg-card rounded-xl p-6 border border-border">
-        <h3 className="text-lg font-medium mb-2">
-          {mode === "reachability" ? "Reachability Matrix" : "Distance Matrix"}
-        </h3>
+        <h3 className="text-lg font-medium mb-2">Distance Matrix</h3>
         <div className="flex items-center justify-center p-12">
           <p className="text-muted-foreground">Preparing algorithm visualization...</p>
         </div>
@@ -237,9 +233,7 @@ export const MatrixViewerWithFrames = ({
       <div className="bg-card rounded-xl p-6 border border-border">
         {/* Header */}
         <div className="mb-4">
-          <h3 className="text-lg font-medium mb-2">
-            {mode === "reachability" ? "Reachability Matrix" : "Distance Matrix"}
-          </h3>
+          <h3 className="text-lg font-medium mb-2">Distance Matrix</h3>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span>
               Iteration k = {k === -1 ? "Initial" : k}
@@ -404,12 +398,10 @@ export const MatrixViewerWithFrames = ({
               <div className="w-3 h-3 border border-green-500 bg-green-100/70 rounded animate-pulse"></div>
               <span>(i, j) - updated cell</span>
             </div>
-            {mode === "distance" && (
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs">∞</span>
-                <span>Infinity / Unreachable</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs">∞</span>
+              <span>Infinity / Unreachable</span>
+            </div>
           </div>
         </div>
       </div>

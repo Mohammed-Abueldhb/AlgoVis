@@ -188,8 +188,17 @@ export const GraphMiniView = ({
   };
 
   return (
-    <div className="w-full h-40 bg-background/50 rounded-lg p-2 border border-border/30">
-      <svg width="100%" height="100%" viewBox={`0 0 ${size} ${size}`} className="w-full h-full">
+    <div className="w-full h-[280px] flex items-center justify-center graph-wrapper max-md:h-[240px]">
+      <svg 
+        width="100%" 
+        height="100%" 
+        viewBox={`0 0 ${size} ${size}`} 
+        className="w-full h-full graph-svg"
+        style={{
+          transform: "scale(1.15)",
+          transformOrigin: "center"
+        }}
+      >
         {/* Draw edges */}
         {edges.map((edge, i) => {
           const pos1 = vertexPositions[edge.u];
